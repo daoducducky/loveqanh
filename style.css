@@ -1,111 +1,469 @@
+/* 
+   3D Love Experience - Luxury Dark Wine & Neon Glassmorphism 
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;800&family=Outfit:wght@300;400;600;700&family=Dancing+Script:wght@600;700&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+    --bg-dark: #050003;
+    --bg-wine: #290008;
+    --primary-pink: #ff4d91;
+    --primary-red: #ff164d;
+    --gold: #ffd76a;
+    --white: #ffffff;
+    --glass-bg: rgba(25, 5, 12, 0.65);
+    --glass-border: rgba(255, 77, 145, 0.25);
+    --glow-pink: 0 0 25px rgba(255, 77, 145, 0.5);
+}
+
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
-body {
-    background-color: #000;
-    overflow: hidden;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    font-family: 'Segoe UI', Arial, sans-serif;
-}
-
-#container {
-    position: relative;
+html, body {
     width: 100vw;
     height: 100vh;
     overflow: hidden;
+    background-color: var(--bg-dark);
+    font-family: 'Outfit', sans-serif;
+    color: var(--white);
+    transition: background 1.5s ease;
+    perspective: 1000px;
 }
 
-canvas {
-    position: absolute;
-    left: 0;
+body.red-world {
+    background: radial-gradient(circle at center, #290008 0%, #120004 45%, #030001 100%);
+}
+
+#webgl-canvas {
+    position: fixed;
     top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: block;
+    z-index: 1;
+    touch-action: none;
+}
+
+/* Center Heart Circular Pink Photo (Clean Pink Border, 3D Synced) */
+#center-heart-photo {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 10;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 108px;
+    height: 108px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 3.5px solid #ff2a6d;
+    box-shadow: 0 0 22px #ff164d, 0 0 40px rgba(255, 42, 109, 0.7);
+    background: #110005;
+    opacity: 0;
+    will-change: transform, opacity;
+    transform-style: preserve-3d;
+    transform-origin: center center;
+}
+
+#center-heart-photo img {
     width: 100%;
     height: 100%;
-    background-color: #050505;
-    z-index: 1;
+    object-fit: cover;
+    display: block;
+    border-radius: 50%;
 }
 
-/* Khung ảnh ở tâm trái tim */
-.heart-center-img {
+/* Floating Memory Photos Container (Delicate & Miniature) */
+#floating-photos-container {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 12;
+}
+
+.floating-photo-card {
     position: absolute;
-    top: calc(50% - 40px);
+    top: 0;
+    left: 0;
+    will-change: transform, opacity;
+    border-radius: 9px;
+    padding: 3px;
+    background: rgba(255, 255, 255, 0.22);
+    border: 1.5px solid rgba(255, 200, 225, 0.85);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4), 0 0 15px rgba(255, 45, 100, 0.65), 0 0 25px rgba(255, 77, 145, 0.4);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: opacity 0.6s ease;
+    opacity: 0;
+}
+
+.floating-photo-card img {
+    width: 42px;
+    height: 52px;
+    object-fit: cover;
+    border-radius: 6px;
+    display: block;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.floating-photo-card .photo-badge {
+    position: absolute;
+    bottom: -4px;
+    right: -4px;
+    font-size: 0.75rem;
+    filter: drop-shadow(0 2px 4px rgba(255, 22, 77, 0.8));
+    animation: heartPulse 1.8s infinite ease-in-out;
+}
+
+/* Supernova Flash Transition Layer */
+#flash-overlay {
+    position: fixed;
+    inset: 0;
+    background: #ffffff;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 20;
+    transition: opacity 0.4s ease;
+}
+
+/* Start Overlay Gate */
+#start-gate {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(5, 0, 3, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 100;
+    cursor: pointer;
+    transition: opacity 0.8s ease, transform 0.8s ease;
+}
+
+#start-gate.fade-out {
+    opacity: 0;
+    transform: scale(1.06);
+    pointer-events: none;
+}
+
+.gate-card {
+    text-align: center;
+    padding: 2.5rem 3rem;
+    border-radius: 24px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), var(--glow-pink);
+    animation: floatCard 3s ease-in-out infinite;
+    max-width: 90vw;
+}
+
+.heart-pulse-icon {
+    font-size: 3.8rem;
+    margin-bottom: 1rem;
+    display: inline-block;
+    filter: drop-shadow(0 0 20px #ff164d);
+    animation: heartPulse 1.4s ease-in-out infinite;
+}
+
+.gate-title {
+    font-family: 'Be Vietnam Pro', 'Montserrat', sans-serif;
+    font-size: 1.7rem;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    background: linear-gradient(135deg, #ffffff 0%, #ff8da8 50%, #ff4d91 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 0.6rem;
+}
+
+.gate-subtitle {
+    font-family: 'Be Vietnam Pro', sans-serif;
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.85);
+    letter-spacing: 0.5px;
+    margin-bottom: 1.5rem;
+}
+
+.gate-action-btn {
+    display: inline-block;
+    padding: 12px 36px;
+    border-radius: 30px;
+    background: linear-gradient(135deg, #ff003c 0%, #ff2a6d 100%);
+    color: #ffffff;
+    font-family: 'Be Vietnam Pro', 'Montserrat', sans-serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    box-shadow: 0 0 25px rgba(255, 42, 109, 0.8), 0 4px 15px rgba(0, 0, 0, 0.5);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    margin-bottom: 1.2rem;
+}
+
+.gate-card:hover .gate-action-btn {
+    transform: scale(1.08);
+    box-shadow: 0 0 35px rgba(255, 42, 109, 1), 0 6px 20px rgba(0, 0, 0, 0.6);
+}
+
+.gate-author-credit {
+    font-family: 'Be Vietnam Pro', sans-serif;
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.55);
+    letter-spacing: 0.8px;
+    font-weight: 500;
+}
+
+/* Floating Audio Toggle Button */
+.floating-btn {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 15px rgba(255, 77, 145, 0.3);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 50;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
+    font-size: 1.3rem;
+}
+
+.floating-btn:hover {
+    transform: scale(1.12);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), var(--glow-pink);
+}
+
+.floating-btn:active {
+    transform: scale(0.95);
+}
+
+.floating-btn.muted {
+    opacity: 0.65;
+    filter: grayscale(0.6);
+}
+
+
+
+/* Floating 'Mở QR Tình Yêu' Button */
+.qr-toggle-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 10px 18px;
+    border-radius: 30px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: #ff9ebb;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 50;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    outline: none;
+}
+
+.qr-toggle-btn:hover {
+    color: #ffffff;
+    background: rgba(255, 22, 77, 0.35);
+    border-color: #ff4d91;
+    box-shadow: var(--glow-pink);
+    transform: translateY(-2px);
+}
+
+.qr-toggle-btn:active {
+    transform: translateY(0);
+}
+
+/* Pure QR Modal (Chỉ Có Mỗi Mã QR) */
+.qr-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 0, 3, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    transform: scale(0.95);
+}
+
+.qr-modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1);
+}
+
+/* Heart-Shaped QR Card (Sử Dụng Ảnh QR Trái Tim Chuẩn & Decor VIP Ở Tâm) */
+.qr-heart-image-card {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    filter: drop-shadow(0 15px 40px rgba(0, 0, 0, 0.95)) drop-shadow(0 0 35px rgba(255, 0, 43, 0.85));
+    animation: floatCard 3.2s ease-in-out infinite;
+}
+
+.qr-heart-img-wrapper {
+    position: relative;
+    width: 320px;
+    height: 320px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    border-radius: 28px;
+    padding: 12px;
+    box-shadow: 0 0 25px rgba(255, 0, 43, 0.6);
+}
+
+.qr-heart-main-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+/* Center VIP Avatar Decor (vip.png) */
+.qr-vip-center-badge {
+    position: absolute;
+    top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 80px;
-    height: 80px;
-    object-fit: cover;
+    width: 58px;
+    height: 58px;
     border-radius: 50%;
-    border: 2px solid #ff4d6d;
-    box-shadow: 0 0 12px #ff4d6d, 0 0 25px rgba(255, 77, 109, 0.6);
-    z-index: 2;
+    background: #ffffff;
+    border: 3px solid #ff0022;
+    box-shadow: 0 0 14px rgba(255, 0, 34, 0.9), 0 2px 10px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    z-index: 10;
     pointer-events: none;
-    transition: transform 0.1s ease-out;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-/* Thu nhỏ ảnh ở tâm hơn nữa cho màn hình điện thoại */
-@media (max-width: 768px) {
-    .heart-center-img {
-        top: calc(50% - 20px);
-        width: 52px;
-        height: 52px;
-    }
-}
-
-/* Container tuyết rơi ảnh */
-.snow-container {
-    position: absolute;
-    top: 0;
-    left: 0;
+.qr-vip-center-badge img {
     width: 100%;
     height: 100%;
-    pointer-events: none;
-    z-index: 3;
-    overflow: hidden;
-}
-
-/* Từng hạt tuyết ảnh mini (kích thước 1% so với web) */
-.snow-flake-img {
-    position: absolute;
-    top: -35px;
-    width: 1.1vw;
-    height: 1.1vw;
-    min-width: 13px;
-    min-height: 13px;
-    max-width: 20px;
-    max-height: 20px;
     object-fit: cover;
+    display: block;
     border-radius: 50%;
-    border: 1px solid rgba(255, 182, 193, 0.7);
-    box-shadow: 0 0 6px rgba(255, 105, 180, 0.6), 0 0 10px rgba(255, 255, 255, 0.4);
-    opacity: 0.85;
-    animation-name: snowFall;
-    animation-timing-function: linear;
-    animation-iteration-count: infinite;
 }
 
-@keyframes snowFall {
-    0% {
-        transform: translateY(0) translateX(0) rotate(0deg);
-        opacity: 0;
+.qr-close-btn {
+    position: absolute;
+    top: -12px;
+    right: -12px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #ff003c;
+    border: 2px solid #ffffff;
+    color: #ffffff;
+    font-size: 1.05rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+    transition: transform 0.2s ease, background 0.2s ease;
+    outline: none;
+    z-index: 30;
+}
+
+.qr-close-btn:hover {
+    transform: scale(1.15);
+    background: #ff003c;
+}
+
+/* Animations */
+@keyframes heartPulse {
+    0% { transform: scale(1); }
+    15% { transform: scale(1.22); }
+    30% { transform: scale(1.05); }
+    45% { transform: scale(1.18); }
+    60% { transform: scale(1); }
+    100% { transform: scale(1); }
+}
+
+@keyframes floatCard {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-8px); }
+}
+
+/* Mobile Adjustments */
+@media (max-width: 600px) {
+    #center-heart-photo {
+        width: 72px;
+        height: 72px;
+        border-width: 3px;
     }
-    10% {
-        opacity: 0.85;
+    .floating-photo-card img {
+        width: 34px;
+        height: 42px;
     }
-    50% {
-        transform: translateY(50vh) translateX(25px) rotate(180deg);
-        opacity: 0.95;
+    .qr-heart-img-wrapper {
+        width: 270px;
+        height: 270px;
     }
-    90% {
-        opacity: 0.8;
+    .qr-vip-center-badge {
+        width: 48px;
+        height: 48px;
     }
-    100% {
-        transform: translateY(105vh) translateX(-25px) rotate(360deg);
-        opacity: 0;
+    .gate-card {
+        padding: 2rem 1.5rem;
+    }
+    .gate-title {
+        font-size: 1.4rem;
+    }
+    .heart-pulse-icon {
+        font-size: 3rem;
+    }
+    .floating-btn {
+        top: 15px;
+        right: 15px;
+        width: 44px;
+        height: 44px;
+    }
+    .qr-toggle-btn {
+        bottom: 15px;
+        right: 15px;
+        padding: 8px 14px;
+        font-size: 0.8rem;
     }
 }

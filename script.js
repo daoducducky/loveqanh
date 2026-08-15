@@ -285,32 +285,85 @@ function initFallingSnowPhotos() {
     var container = document.getElementById('snow-container');
     if (!container) return;
 
-    var totalSnowFlakes = window.isDevice ? 35 : 55;
+    var totalSnowFlakes = window.isDevice ? 32 : 48;
     var imagePool = [];
     for (var i = 1; i <= 15; i++) {
         imagePool.push('./images/' + i + '.png');
     }
 
+    var snowflakeSvg = 
+        '<svg class="snowflake-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+            '<g stroke="#ffffff" stroke-width="3" stroke-linecap="round">' +
+                '<line x1="50" y1="2" x2="50" y2="98"/>' +
+                '<line x1="8.4" y1="26" x2="91.6" y2="74"/>' +
+                '<line x1="8.4" y1="74" x2="91.6" y2="26"/>' +
+            '</g>' +
+            '<g stroke="#ffb6d9" stroke-width="2.5" stroke-linecap="round">' +
+                '<path d="M42 16 L50 24 L58 16"/>' +
+                '<path d="M42 84 L50 76 L58 84"/>' +
+                '<path d="M82 32 L73 37 L78 46"/>' +
+                '<path d="M18 68 L27 63 L22 54"/>' +
+                '<path d="M18 32 L27 37 L22 46"/>' +
+                '<path d="M82 68 L73 63 L78 54"/>' +
+            '</g>' +
+            '<circle cx="50" cy="50" r="28" stroke="#ffffff" stroke-width="2.5" fill="rgba(255, 105, 180, 0.25)"/>' +
+        '</svg>';
+
+    var flakes = [];
+
     for (var i = 0; i < totalSnowFlakes; i++) {
-        var img = document.createElement('img');
-        var randImg = imagePool[Math.floor(Math.random() * imagePool.length)];
-        img.src = randImg;
-        img.className = 'snow-flake-img';
-        img.alt = 'Snow';
+        var wrapper = document.createElement('div');
+        wrapper.className = 'snowflake-wrapper';
 
-        // Phân bố ngẫu nhiên trên chiều ngang
-        var leftPercent = Math.random() * 100;
-        var duration = (Math.random() * 4.5 + 4.5); // 4.5s - 9.0s
-        var delay = Math.random() * 8.0; // 0s - 8s delay
-        var sizeMultiplier = (Math.random() * 0.4 + 0.8); // 0.8 - 1.2
+        var randImg = imagePool[i % imagePool.length];
+        wrapper.innerHTML = snowflakeSvg + '<img src="' + randImg + '" class="snowflake-photo-inner" alt="Quỳnh Anh">';
+        container.appendChild(wrapper);
 
-        img.style.left = leftPercent + 'vw';
-        img.style.animationDuration = duration + 's';
-        img.style.animationDelay = delay + 's';
-        img.style.transform = 'scale(' + sizeMultiplier + ')';
-
-        container.appendChild(img);
+        // Rải đều khắp màn hình ngay từ giây đầu tiên
+        var flake = {
+            el: wrapper,
+            svg: wrapper.querySelector('.snowflake-svg'),
+            x: Math.random() * (window.innerWidth - 40),
+            y: Math.random() * (window.innerHeight + 100) - 50,
+            speedY: Math.random() * 1.5 + 0.8,
+            speedX: Math.random() * 0.6 - 0.3,
+            angle: Math.random() * 360,
+            spinSpeed: (Math.random() * 1.2 + 0.6) * (Math.random() < 0.5 ? 1 : -1),
+            scale: Math.random() * 0.35 + 0.85,
+            swayAngle: Math.random() * Math.PI * 2,
+            swaySpeed: Math.random() * 0.03 + 0.015
+        };
+        flakes.push(flake);
     }
+
+    function animateSnow() {
+        var width = window.innerWidth;
+        var height = window.innerHeight;
+
+        for (var i = 0; i < flakes.length; i++) {
+            var f = flakes[i];
+            f.y += f.speedY;
+            f.swayAngle += f.swaySpeed;
+            f.x += Math.sin(f.swayAngle) * 0.9 + f.speedX;
+            f.angle += f.spinSpeed;
+
+            // Khi rơi hết đáy màn hình -> bay lại đỉnh
+            if (f.y > height + 50) {
+                f.y = -50;
+                f.x = Math.random() * (width - 40);
+            }
+            if (f.x > width + 50) f.x = -50;
+            if (f.x < -50) f.x = width + 50;
+
+            f.el.style.transform = 'translate3d(' + f.x + 'px, ' + f.y + 'px, 0) scale(' + f.scale + ')';
+            if (f.svg) {
+                f.svg.style.transform = 'rotate(' + f.angle + 'deg)';
+            }
+        }
+        window.requestAnimationFrame(animateSnow);
+    }
+
+    window.requestAnimationFrame(animateSnow);
 }
 
 var s = document.readyState;

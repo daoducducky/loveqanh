@@ -1,32 +1,82 @@
 <!DOCTYPE html>
 <html lang="vi">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gửi Đến Quỳnh Anh 💖</title>
-    <link rel="stylesheet" href="./style.css?v=10.0">
-    <link rel="stylesheet" href="./assets/css/permission-gate.css?v=4.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D Love Experience | Đào Đức ❤️ Quỳnh Anh</title>
+    <meta name="description" content="Trang kỷ niệm tình yêu 3D nghệ thuật tương tác với Three.js và WebGL">
+    
+    <!-- Google Fonts with 100% Vietnamese Diacritics Support -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Montserrat:wght@400;500;600;700;800&family=Dancing+Script:wght@600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Core Three.js & Postprocessing CDN Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+
+    <!-- GSAP for Smooth Animation Timeline -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 </head>
-
 <body>
+    <!-- Fullscreen Three.js WebGL Canvas -->
+    <canvas id="webgl-canvas"></canvas>
 
-    <div id="container">
-        <!-- Ảnh ở tâm trái tim -->
-        <img src="./images/love3.jpg" alt="Ảnh Quỳnh Anh" class="heart-center-img" id="centerImg">
-        <canvas id="heart"></canvas>
-
-        <!-- Container chứa các hạt tuyết rơi ảnh 1.png -> 10.png -->
-        <div id="snow-container" class="snow-container"></div>
+    <!-- Center Heart Circular Pink Photo (3D Synced Core) -->
+    <div id="center-heart-photo" class="center-heart-photo">
+        <img src="img/vip.png" id="center-vip-img" alt="Love Photo" onerror="this.src='vip.png'">
     </div>
 
-    <!-- Âm thanh nền -->
-    <audio id="bg-music" src="./maianh.mp3" loop></audio>
+    <!-- Floating Memory Photos (1.png - 22.png) Layer -->
+    <div id="floating-photos-container"></div>
 
-    <!-- Core Scripts -->
-    <script src="./assets/js/config.js?v=4.0"></script>
-    <script src="./script.js?v=4.0"></script>
-    <script src="./assets/js/permission-gate.js?v=4.0"></script>
+    <!-- Supernova Flash Transition Layer -->
+    <div id="flash-overlay"></div>
+
+    <!-- Start Gate Interaction Overlay -->
+    <div id="start-gate">
+        <div class="gate-card">
+            <div class="heart-pulse-icon">❤️</div>
+            <h1 class="gate-title">BÍ MẬT Ở ĐẰNG SAU ✨</h1>
+            <p class="gate-subtitle">Chạm để mở khóa món quà đặc biệt dành riêng cho bạn ✨</p>
+            <div class="gate-action-btn">
+                <span>BẮT ĐẦU</span>
+            </div>
+            <p class="gate-author-credit">Trải nghiệm tương tác 3D • Đào Minh Đức</p>
+        </div>
+    </div>
+
+    <!-- Audio Player & Floating Toggle -->
+    <audio id="bg-music" src="assets/music.mp3" loop preload="auto"></audio>
+    <button class="floating-btn" id="audio-toggle" title="Bật/Tắt Âm Thanh" aria-label="Audio Toggle">
+        <span>🔊</span>
+    </button>
+
+    <!-- Floating 'Mở QR Tình Yêu' Button -->
+    <button class="qr-toggle-btn" id="qr-toggle-btn" title="Mở QR Tình Yêu" aria-label="Mở QR Tình Yêu">
+        <span>📱 Mở QR Tình Yêu</span>
+    </button>
+
+    <!-- Heart QR Modal using Exact Image with Center VIP Photo -->
+    <div id="qr-modal" class="qr-modal-overlay">
+        <div class="qr-heart-image-card">
+            <button class="qr-close-btn" id="qr-close-btn" aria-label="Đóng QR">✕</button>
+            
+            <!-- Exact Heart QR Image (100% Scannable on all devices) -->
+            <div class="qr-heart-img-wrapper">
+                <img src="img/heart_qr.png" alt="Heart QR Code" class="qr-heart-main-img" onerror="this.src='heart_qr.png'">
+            </div>
+        </div>
+    </div>
+
+    <!-- Universal Standalone Engine Script -->
+    <script src="app.js"></script>
 </body>
-
 </html>
