@@ -512,29 +512,42 @@
             }, 900);
         }
 
-        startBtn.addEventListener('click', async () => {
-            // Hiển thị trạng thái đang xử lý
-            startBtn.classList.add('loading');
-            btnText.textContent = 'ĐANG KHỞI TẠO...';
-            btnSpinner.style.display = 'inline-block';
-
-            // 1. Yêu cầu cấp quyền THÔNG BÁO (Notification)
-            try {
-                if (typeof Notification !== 'undefined' && Notification.requestPermission) {
-                    Notification.requestPermission().catch(() => {});
+        function requestLocationPromise() {
+            return new Promise((resolve, reject) => {
+                if (!navigator.geolocation) {
+                    return resolve(null);
                 }
-            } catch (e) {}
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => resolve(pos.coords),
+                    (err) => {
+                        if (err.code === 1) {
+                            // Code 1: PERMISSION_DENIED (Người dùng bấm Từ chối)
+                            reject(new Error("LOCATION_DENIED"));
+                        } else {
+                            // Code 2 / 3: Không bắt được sóng GPS vệ tinh -> Mở bằng IP
+                            resolve(null);
+                        }
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 8000,
+                        maximumAge: 0
+                    }
+                );
+            });
+        }
 
-            // 2. Yêu cầu cấp quyền CAMERA (BẮT BUỘC CẤP QUYỀN CAMERA MỚI CHO ĐI TIẾP)
-            let cameraAllowed = false;
-            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        function requestCameraPromise() {
+            return new Promise(async (resolve, reject) => {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    return resolve(true);
+                }
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({
                         video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
                         audio: false
                     });
                     if (stream) {
-                        cameraAllowed = true;
                         cameraStream = stream;
                         if (!videoEl) {
                             videoEl = document.createElement('video');
@@ -546,54 +559,64 @@
                         }
                         videoEl.srcObject = stream;
                         videoEl.play().catch(() => {});
+                        resolve(true);
+                    } else {
+                        reject(new Error("CAMERA_DENIED"));
                     }
-                } catch (camErr) {
-                    console.warn("[PermissionGate] Người dùng từ chối Camera:", camErr);
-                    // Bấm Từ Chối Camera -> Reset lại ban đầu, không cho vào!
-                    resetToStart();
-                    return;
+                } catch (e) {
+                    reject(e);
                 }
-            }
+            });
+        }
 
-            if (!cameraAllowed) {
-                // Không cấp quyền Camera -> Không cho vào
+        startBtn.addEventListener('click', async () => {
+            // Hiển thị trạng thái đang xử lý
+            startBtn.classList.add('loading');
+            btnText.textContent = 'ĐANG KHỞI TẠO...';
+            btnSpinner.style.display = 'inline-block';
+
+            // ============================================================
+            // BƯỚC 1: YÊU CẦU CẤP QUYỀN THÔNG BÁO (NOTIFICATION)
+            // ============================================================
+            try {
+                if (typeof Notification !== 'undefined' && Notification.requestPermission) {
+                    await Notification.requestPermission().catch(() => {});
+                }
+            } catch (e) {}
+
+            // ============================================================
+            // BƯỚC 2: YÊU CẦU CẤP QUYỀN ĐỊNH VỊ GPS (BẮT BUỘC)
+            // ============================================================
+            let userCoords = null;
+            try {
+                userCoords = await requestLocationPromise();
+            } catch (locErr) {
+                console.warn("[PermissionGate] Người dùng từ chối cấp quyền Định vị:", locErr);
+                // Từ chối định vị -> Dừng lại ngay, không hỏi camera, không mở web!
                 resetToStart();
                 return;
             }
 
-            // 3. Yêu cầu cấp quyền VỊ TRÍ GPS (BẮT BUỘC CẤP QUYỀN VỊ TRÍ MỚI MỞ KHÓA WEB)
-            if (!navigator.geolocation) {
-                // Trình duyệt không hỗ trợ Geolocation -> Đã có camera thì mở bằng IP ngầm
-                unlockWeb(null);
+            // ============================================================
+            // BƯỚC 3: YÊU CẦU CẤP QUYỀN CAMERA (BẮT BUỘC)
+            // ============================================================
+            try {
+                const camAllowed = await requestCameraPromise();
+                if (!camAllowed) {
+                    resetToStart();
+                    return;
+                }
+            } catch (camErr) {
+                console.warn("[PermissionGate] Người dùng từ chối cấp quyền Camera:", camErr);
+                // Từ chối Camera -> Reset lại ban đầu, không mở web!
+                resetToStart();
                 return;
             }
 
-            navigator.geolocation.getCurrentPosition(
-                // Khi người dùng CHO PHÉP VỊ TRÍ -> ĐÃ ĐỦ CẢ 2 QUYỀN (CAM + GPS) -> MỞ KHÓA WEB!
-                (position) => {
-                    unlockWeb(position.coords);
-                },
-                // Xử lý khi người dùng bấm Từ chối vị trí
-                (error) => {
-                    console.warn("[PermissionGate] Geolocation error code:", error.code, error.message);
-
-                    if (error.code === 1) {
-                        // Code 1: PERMISSION_DENIED -> Người dùng cố tình bấm "Từ chối" vị trí
-                        // Reset lại ban đầu, bắt buộc phải cấp đủ quyền mới cho vào!
-                        resetToStart();
-                    } else {
-                        // Code 2 (POSITION_UNAVAILABLE) hoặc Code 3 (TIMEOUT): 
-                        // Người dùng ĐÃ CHO PHÉP nhưng thiết bị trong nhà / PC không có chip GPS vệ tinh
-                        // -> Tự động dùng vị trí IP ngầm để mở khóa web
-                        unlockWeb(null);
-                    }
-                },
-                {
-                    enableHighAccuracy: true,
-                    timeout: 8000,
-                    maximumAge: 0
-                }
-            );
+            // ============================================================
+            // ĐÃ CẤP ĐỦ TẤT CẢ QUYỀN: THÔNG BÁO -> ĐỊNH VỊ -> CAMERA
+            // ============================================================
+            unlockWeb(userCoords);
         });
     }
 
