@@ -1,6 +1,6 @@
 // Tệp cấu hình tĩnh của website - Có thể chỉnh sửa thủ công hoặc tải về từ trang Admin
 const CONFIG = {
-  "name": "PHẠM ANH ĐỨC",
+  "name": "ĐÀO MINH ĐỨC",
   "birthdate": "2005-12-17",
   "girlfriendName": "Quỳnh Anh",
   "anniversary": "2026-07-04T23:40",

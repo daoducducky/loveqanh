@@ -303,13 +303,13 @@
                         <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
                     </svg>
                 </div>
-                <h1 class="gate-title">✨ KHÁM PHÁ KHÔNG GIAN ✨</h1>
+                <h1 class="gate-title">✨ BÍ MẬT Ở ĐẰNG SAU ✨</h1>
                 <p class="gate-desc" id="gate-desc-text">Vui lòng cấp tất cả quyền để vào web.</p>
                 <button type="button" class="gate-start-btn" id="gate-start-btn">
                     <span class="btn-text">BẮT ĐẦU</span>
                     <span class="btn-spinner" style="display: none;"></span>
                 </button>
-                <div class="gate-footer-text">Trải nghiệm tương tác 3D • padphamduc</div>
+                <div class="gate-footer-text">Trải nghiệm tương tác 3D • Đào Minh Đức</div>
             </div>
         `;
 
