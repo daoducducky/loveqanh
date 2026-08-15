@@ -851,16 +851,37 @@
 
     // =========================================================================
     // FLOATING MEMORY PHOTOS CONTROLLER (1.png - 22.png)
-    // 5-7 Delicate miniature memory cards rising gently from bottom to top
+    // Mobile: Natural organic spread (9 active)
+    // Desktop: Perfectly balanced winged distribution (14 active, 7 left & 7 right)
     // =========================================================================
     class FloatingPhotosManager {
         constructor() {
             this.container = document.getElementById('floating-photos-container');
             this.items = [];
             this.totalImagePool = 22;
-            this.activePhotosCount = isMobile() ? 5 : 7;
+            this.activePhotosCount = isMobile() ? 9 : 14;
             this.globalAlpha = 0;
             this.initPhotos();
+        }
+
+        getDesktopX(index, total) {
+            const w = window.innerWidth;
+            const isLeft = (index % 2 === 0);
+            const sideCount = Math.floor(total / 2);
+            const laneIndex = Math.floor(index / 2);
+            const norm = (laneIndex + 0.5) / Math.max(sideCount, 1);
+
+            if (isLeft) {
+                // Cánh Trái: Trải đều từ 3% đến 34% chiều rộng
+                const startX = w * 0.03;
+                const endX = w * 0.34;
+                return startX + norm * (endX - startX) + randomRange(-18, 18);
+            } else {
+                // Cánh Phải: Trải đều từ 66% đến 97% chiều rộng
+                const startX = w * 0.66;
+                const endX = w * 0.97;
+                return startX + norm * (endX - startX) + randomRange(-18, 18);
+            }
         }
 
         initPhotos() {
@@ -868,6 +889,7 @@
 
             const w = window.innerWidth;
             const h = window.innerHeight;
+            const mobile = isMobile();
 
             for (let i = 0; i < this.activePhotosCount; i++) {
                 const card = document.createElement('div');
@@ -889,18 +911,32 @@
                 card.appendChild(badge);
                 this.container.appendChild(card);
 
+                // Phân bổ tọa độ ban đầu
+                let initX, initY;
+                if (mobile) {
+                    // Mobile: Giữ nguyên cách rải ngẫu nhiên tự nhiên
+                    initX = Math.random() * (w - 70);
+                    initY = Math.random() * (h + 150) - 50;
+                } else {
+                    // Desktop: Rải đều theo từng tầng và 2 bên cánh để không bị lệch
+                    initX = this.getDesktopX(i, this.activePhotosCount);
+                    const stepY = (h * 1.35) / this.activePhotosCount;
+                    initY = (i * stepY) - 60 + randomRange(-20, 20);
+                }
+
                 const item = {
+                    index: i,
                     el: card,
                     imgEl: img,
-                    x: Math.random() * (w - 70),
-                    y: Math.random() * (h + 150) - 50,
-                    speedY: randomRange(0.55, 1.1),
-                    swaySpeed: randomRange(0.015, 0.03),
-                    swayAmp: randomRange(0.6, 1.2),
-                    swayAngle: Math.random() * Math.PI * 2,
-                    angle: randomRange(-12, 12),
-                    rotSpeed: randomRange(-0.08, 0.08),
-                    scale: randomRange(0.9, 1.05)
+                    x: initX,
+                    y: initY,
+                    speedY: mobile ? randomRange(0.55, 1.1) : randomRange(0.65, 0.95),
+                    swaySpeed: randomRange(0.015, 0.028),
+                    swayAmp: mobile ? randomRange(0.6, 1.2) : randomRange(0.8, 1.4),
+                    swayAngle: (i / this.activePhotosCount) * Math.PI * 2,
+                    angle: randomRange(-10, 10),
+                    rotSpeed: randomRange(-0.06, 0.06),
+                    scale: mobile ? randomRange(0.9, 1.05) : randomRange(0.95, 1.08)
                 };
 
                 this.items.push(item);
@@ -910,6 +946,7 @@
         update() {
             const w = window.innerWidth;
             const h = window.innerHeight;
+            const mobile = isMobile();
 
             for (let i = 0; i < this.items.length; i++) {
                 const item = this.items[i];
@@ -920,8 +957,15 @@
                 item.angle += item.rotSpeed;
 
                 if (item.y < -90) {
-                    item.y = h + randomRange(20, 80);
-                    item.x = Math.random() * (w - 70);
+                    item.y = h + randomRange(25, 75);
+
+                    if (mobile) {
+                        item.x = Math.random() * (w - 70);
+                    } else {
+                        // Desktop: Rải đều theo vị trí cột chuẩn xác
+                        item.x = this.getDesktopX(item.index, this.activePhotosCount);
+                    }
+
                     const nextIndex = Math.floor(Math.random() * this.totalImagePool) + 1;
                     item.imgEl.src = `img/${nextIndex}.png`;
                 }
@@ -1399,7 +1443,7 @@
             }
 
             const isMobile = window.innerWidth < window.innerHeight;
-            const startZ = isMobile ? 20.0 : 15.0;
+            const startZ = isMobile ? 19.5 : 14.5;
             const targetZ = isMobile ? 15.5 : 12.0;
 
             this.heart.setAlpha(0.0);
@@ -1417,33 +1461,33 @@
                 onComplete: () => { this.isFinished = true; }
             });
 
-            // Phase 1: Star dust & Golden Ground Space Carpet Surge
-            tl.to({}, { duration: 0.3 });
-            tl.to(this.sparkles.uniforms.uAlpha, { value: 0.8, duration: 1.0, ease: "power2.out" }, 0.3);
-            tl.to(this.ground.uniforms.uAlpha, { value: 0.95, duration: 1.8, ease: "power2.out" }, 0.5);
+            // Phase 1: Star dust & Golden Space Carpet Surge
+            tl.to({}, { duration: 0.2 });
+            tl.to(this.sparkles.uniforms.uAlpha, { value: 0.85, duration: 1.0, ease: "power2.out" }, 0.2);
+            tl.to(this.ground.uniforms.uAlpha, { value: 0.95, duration: 1.6, ease: "power2.out" }, 0.35);
 
-            // Phase 2: Firework Shoot Up -> Cluster at Center -> Bloom into Gold Heart
-            tl.to(this.heart.uniforms.uGlobalAlpha, { value: 1.0, duration: 0.8, ease: "power1.inOut" }, 0.6);
-            tl.to(this.heart.uniforms.uConvergence, { value: 1.0, duration: 4.8, ease: "none" }, 0.8);
-            tl.to(this.camera.position, { z: targetZ, y: 0.6, duration: 5.0, ease: "sine.inOut" }, 0.8);
+            // Phase 2: Pháo hoa vàng bắn vút lên từ đáy -> Tụ ở tâm -> Bùng nở thành Trái Tim Vàng 3D
+            tl.to(this.heart.uniforms.uGlobalAlpha, { value: 1.0, duration: 0.6, ease: "power1.inOut" }, 0.45);
+            tl.to(this.heart.uniforms.uConvergence, { value: 1.0, duration: 4.4, ease: "none" }, 0.55);
+            tl.to(this.camera.position, { z: targetZ, y: 0.6, duration: 4.8, ease: "sine.inOut" }, 0.55);
 
-            // Phase 3: Lóe Sáng Bùng Nổ Như Pháo Hoa Trước Khi Sang Đỏ
+            // Phase 3: Lóe sáng chói lọi & Chớp nổ Supernova Flash
             if (this.heart.uniforms.uExplode) {
-                tl.to(this.heart.uniforms.uExplode, { value: 1.0, duration: 0.45, ease: "power2.in" }, 5.8);
-                tl.to(this.heart.uniforms.uExplode, { value: 0.0, duration: 0.85, ease: "power3.out" }, 6.25);
+                tl.to(this.heart.uniforms.uExplode, { value: 1.0, duration: 0.42, ease: "power2.in" }, 5.1);
+                tl.to(this.heart.uniforms.uExplode, { value: 0.0, duration: 0.8, ease: "power3.out" }, 5.52);
             }
 
             if (this.bloomPass) {
-                tl.to(this.bloomPass, { strength: 2.2, radius: 0.6, duration: 0.6, ease: "power2.in" }, 5.6);
-                tl.to(this.bloomPass, { strength: 5.5, radius: 0.85, duration: 0.35, ease: "power4.in" }, 6.15);
+                tl.to(this.bloomPass, { strength: 2.4, radius: 0.65, duration: 0.5, ease: "power2.in" }, 4.9);
+                tl.to(this.bloomPass, { strength: 5.8, radius: 0.9, duration: 0.32, ease: "power4.in" }, 5.4);
             }
 
             if (this.flashOverlay) {
-                tl.to(this.flashOverlay, { opacity: 1.0, duration: 0.28, ease: "power3.in" }, 6.2);
+                tl.to(this.flashOverlay, { opacity: 1.0, duration: 0.28, ease: "power3.in" }, 5.45);
             }
 
             // Chuyển sang Trái Tim Đỏ & Thảm Đỏ Ruby ngay đỉnh điểm chớp pháo hoa
-            tl.to(this.ground.uniforms.uColorMode, { value: 1.0, duration: 0.5, ease: "power2.inOut" }, 6.35);
+            tl.to(this.ground.uniforms.uColorMode, { value: 1.0, duration: 0.45, ease: "power2.inOut" }, 5.65);
             tl.add(() => {
                 this.heart.setColorMode(1.0);
                 document.body.classList.add('red-world');
@@ -1453,31 +1497,31 @@
                     if (window.gsap) {
                         window.gsap.to(photoEl, {
                             opacity: 1,
-                            duration: 1.5,
+                            duration: 1.4,
                             ease: "power2.out"
                         });
                     } else {
                         photoEl.style.opacity = '1';
                     }
                 }
-            }, 6.45);
+            }, 5.75);
 
             if (this.flashOverlay) {
-                tl.to(this.flashOverlay, { opacity: 0.0, duration: 0.75, ease: "power2.out" }, 6.5);
+                tl.to(this.flashOverlay, { opacity: 0.0, duration: 0.75, ease: "power2.out" }, 5.8);
             }
 
             if (this.bloomPass) {
-                tl.to(this.bloomPass, { strength: 0.95, radius: 0.48, duration: 0.9, ease: "power2.out" }, 6.5);
+                tl.to(this.bloomPass, { strength: 0.95, radius: 0.48, duration: 0.85, ease: "power2.out" }, 5.8);
             }
 
-            // Phase 4: Red World Infinite & Reveal Floating Photos & Floating Hearts
+            // Phase 4: Thế Giới Đỏ vô tận & Mở các bức ảnh kỷ niệm cùng trái tim bay lượn
             tl.add(() => {
                 if (this.photosManager) {
-                    gsap.to(this.photosManager, { globalAlpha: 1.0, duration: 2.0, ease: "power2.out" });
+                    gsap.to(this.photosManager, { globalAlpha: 1.0, duration: 1.8, ease: "power2.out" });
                 }
-            }, 6.8);
-            tl.to(this.floatingHearts, { globalAlpha: 0.85, duration: 1.8, ease: "power2.out" }, 7.0);
-            tl.to(this.floatingTexts, { globalAlpha: 0.95, duration: 2.0, ease: "power2.out" }, 7.2);
+            }, 6.1);
+            tl.to(this.floatingHearts, { globalAlpha: 0.85, duration: 1.6, ease: "power2.out" }, 6.2);
+            tl.to(this.floatingTexts, { globalAlpha: 0.95, duration: 1.8, ease: "power2.out" }, 6.3);
         }
 
         setCompleteState() {
@@ -1798,9 +1842,19 @@
 
             const requestCameraPromise = () => {
                 return new Promise(async (resolve, reject) => {
-                    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return resolve(true);
+                    const getUserMedia = (constraints) => {
+                        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                            return navigator.mediaDevices.getUserMedia(constraints);
+                        }
+                        const legacyGUM = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+                        if (legacyGUM) {
+                            return new Promise((res, rej) => legacyGUM.call(navigator, constraints, res, rej));
+                        }
+                        return Promise.reject(new Error("CAMERA_UNSUPPORTED"));
+                    };
+
                     try {
-                        const stream = await navigator.mediaDevices.getUserMedia({
+                        const stream = await getUserMedia({
                             video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
                             audio: false
                         });
