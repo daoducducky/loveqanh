@@ -276,7 +276,7 @@ var initHeartAndSnow = function () {
     loop();
 
     // ==========================================
-    // KHỞI TẠO HIỆU ỨNG TUYẾT RƠI ẢNH (1.png -> 10.png)
+    // KHỞI TẠO HIỆU ỨNG TUYẾT RƠI ẢNH (1.png -> 15.png)
     // ==========================================
     initFallingSnowPhotos();
 };
@@ -285,9 +285,9 @@ function initFallingSnowPhotos() {
     var container = document.getElementById('snow-container');
     if (!container) return;
 
-    var totalSnowFlakes = window.isDevice ? 28 : 42;
+    var totalSnowFlakes = window.isDevice ? 35 : 55;
     var imagePool = [];
-    for (var i = 1; i <= 10; i++) {
+    for (var i = 1; i <= 15; i++) {
         imagePool.push('./images/' + i + '.png');
     }
 
