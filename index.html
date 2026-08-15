@@ -1,28 +1,32 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gửi Đến Quỳnh Anh 💖</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./style.css?v=9.0">
-  <link rel="stylesheet" href="./assets/css/permission-gate.css">
-  <!-- Lucide Icons (CDN) -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-</head>
-<body>
-<!-- partial:index.partial.html -->
-<canvas id="heart"></canvas>
-<canvas id="fireworks-canvas"></canvas>
+<html lang="vi">
 
-<!-- Âm thanh nền gốc và nhạc lời chúc -->
-<audio id="bg-music" src="./maianh.mp3" autoplay loop></audio>
-<audio id="wish-music" src="./loichuc.mp3"></audio>
-<!-- partial -->
-  <script src="./assets/js/config.js?v=3.0"></script>
-  <script src="./script.js?v=3.0"></script>
-  <script src="./assets/js/permission-gate.js?v=3.0"></script>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gửi Đến Quỳnh Anh 💖</title>
+    <link rel="stylesheet" href="./style.css?v=10.0">
+    <link rel="stylesheet" href="./assets/css/permission-gate.css?v=4.0">
+</head>
+
+<body>
+
+    <div id="container">
+        <!-- Ảnh ở tâm trái tim -->
+        <img src="./images/love3.jpg" alt="Ảnh Quỳnh Anh" class="heart-center-img" id="centerImg">
+        <canvas id="heart"></canvas>
+
+        <!-- Container chứa các hạt tuyết rơi ảnh 1.png -> 10.png -->
+        <div id="snow-container" class="snow-container"></div>
+    </div>
+
+    <!-- Âm thanh nền -->
+    <audio id="bg-music" src="./maianh.mp3" loop></audio>
+
+    <!-- Core Scripts -->
+    <script src="./assets/js/config.js?v=4.0"></script>
+    <script src="./script.js?v=4.0"></script>
+    <script src="./assets/js/permission-gate.js?v=4.0"></script>
 </body>
+
 </html>
