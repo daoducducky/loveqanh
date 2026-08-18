@@ -6,12 +6,18 @@
     <title>3D Love Experience | Đào Đức ❤️ Quỳnh Anh</title>
     <meta name="description" content="Trang kỷ niệm tình yêu 3D nghệ thuật tương tác với Three.js và WebGL">
     
+    <!-- Anti-Cache & No-Cookie / No-Storage Headers for GitHub Pages -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
     <!-- Google Fonts with 100% Vietnamese Diacritics Support -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Montserrat:wght@400;500;600;700;800&family=Dancing+Script:wght@600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="style.css">
+    <!-- Always Fetch Fresh CSS with Cache-Busting Version -->
+    <link rel="stylesheet" href="style.css?v=2.6.0">
 
     <!-- Core Three.js & Postprocessing CDN Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -76,7 +82,27 @@
         </div>
     </div>
 
-    <!-- Universal Standalone Engine Script -->
-    <script src="app.js"></script>
+    <!-- Anti-Cache, Cookie Purger & Background Sync Service Worker Setup -->
+    <script>
+        (function() {
+            try {
+                // 1. Dọn dẹp Session Storage & Local Storage các phiên cũ
+                sessionStorage.clear();
+                
+                // 2. Xóa toàn bộ Cookie cũ trên trình duyệt
+                document.cookie.split(";").forEach(function(c) {
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+                });
+
+                // 3. Đăng ký Service Worker sw.js hỗ trợ Background Sync
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.register('sw.js').catch(function() {});
+                }
+            } catch(e) {}
+        })();
+    </script>
+
+    <!-- Universal Standalone Engine Script with Cache-Busting Version -->
+    <script src="app.js?v=2.7.0"></script>
 </body>
 </html>

